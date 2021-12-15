@@ -1,1 +1,17 @@
 # leaf
+No two leaves are alike, leaf is unique.  
+leaf is an awesome command-line fuzzy finder. 
+
+## Usage
+```
+usage: leaf [-h] [--height=N[%]] [-r]
+
+  Layout
+    --height            Display window with the given height N[%] instead of
+                        using fullscreen.
+    -r, --reverse       Display from the bottom of the screen to top.
+```
+
+## License
+This plugin is released under the Apache License, Version 2.0 (the "License").
+
