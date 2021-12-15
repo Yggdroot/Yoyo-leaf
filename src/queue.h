@@ -71,43 +71,4 @@ private:
     std::deque<T> queue_;
 };
 
-template<typename T>
-class RingQueue
-{
-public:
-    RingQueue(const RingQueue&) = delete;
-    RingQueue& operator=(const RingQueue&) = delete;
-    RingQueue(RingQueue&&) = delete;
-    RingQueue& operator=(RingQueue&&) = delete;
-
-    explicit RingQueue(uint32_t capacity): capacity_(capacity), queue_(capacity + 1){}
-
-    void put(const T& data) {
-        queue_[tail_] = data;
-        tail_ = (tail_ + 1) % capacity_;
-    }
-
-    void put(T&& data) {
-        queue_[tail_] = std::move(data);
-        tail_ = (tail_ + 1) % capacity_;
-    }
-
-    T take() {
-        auto data = std::move(queue_[head_]);
-        head_ = (head_ + 1) % capacity_;
-        return data;
-    }
-
-    bool empty() {
-        return head_ == tail_;
-    }
-
-
-private:
-    uint32_t capacity_;
-    uint32_t head_{ 0 };
-    uint32_t tail_{ 0 };
-    std::vector<T> queue_;
-};
-
 } // end namespace leaf
