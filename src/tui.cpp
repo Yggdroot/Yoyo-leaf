@@ -209,7 +209,7 @@ void Window::_renderCursorline(uint32_t cursor_line) {
 
 
 void Window::_updateCursorline(uint32_t new_cursorline) {
-    if ( new_cursorline == cursor_line_ ) {
+    if ( new_cursorline == cursor_line_ || new_cursorline >= buffer_.size() ) {
         return;
     }
 
