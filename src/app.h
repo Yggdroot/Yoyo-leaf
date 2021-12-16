@@ -198,6 +198,7 @@ private:
     uint32_t indent_{ ConfigManager::getInstance().getConfigValue<ConfigType::Indentation>() };
 
     FuzzyEngine fuzzy_engine_;
+    Preference  preference_{ ConfigManager::getInstance().getConfigValue<ConfigType::SortPreference>() };
     std::unordered_map<std::string, Key>       key_map_;
     std::unordered_map<std::string, Operation> op_map_;
     std::unordered_map<Key, Operation>         key_op_map_;

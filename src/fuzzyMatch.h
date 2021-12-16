@@ -2,17 +2,12 @@ _Pragma("once");
 
 #include <cstdint>
 #include <memory>
+#include "config.h"
 
 namespace leaf
 {
 
 #define MIN_WEIGHT (-1000000)
-
-enum class Preference {
-    Begin,
-    End,
-};
-
 
 struct PatternContext
 {
@@ -60,7 +55,7 @@ public:
     int32_t getWeight(const char* text,
                       uint16_t text_len,
                       PatternContext* p_pattern_ctxt,
-                      Preference preference=Preference::Begin);
+                      Preference preference);
 
     Unique_ptr<HighlightContext> getHighlights(const char* text,
                                                uint16_t text_len,

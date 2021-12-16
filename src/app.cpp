@@ -907,7 +907,7 @@ void Application::_search(bool is_continue) {
         }
     }
 
-    auto result = fuzzy_engine_.fuzzyMatch(source_begin, content_size, pattern_);
+    auto result = fuzzy_engine_.fuzzyMatch(source_begin, content_size, pattern_, preference_);
     if ( is_continue && result_content_.size() > 0 ) {
         result = fuzzy_engine_.merge(previous_result_, result);
     }

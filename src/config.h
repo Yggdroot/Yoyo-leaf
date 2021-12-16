@@ -1,5 +1,6 @@
 _Pragma("once");
 
+#include <string>
 #include <cstdint>
 #include <utility>
 #include <type_traits>
@@ -12,8 +13,14 @@ enum class ConfigType
     Reverse,
     Height,
     Indentation,
+    SortPreference,
 
     MaxConfigNum
+};
+
+enum class Preference {
+    Begin,
+    End,
 };
 
 template <ConfigType T>
@@ -30,6 +37,7 @@ struct ConfigValueType {
 
 DefineConfigValue(Height, uint32_t)
 DefineConfigValue(Indentation, uint32_t)
+DefineConfigValue(SortPreference, Preference)
 
 #define SetConfigValue(container, cfg_type, value)                  \
     container[static_cast<uint32_t>(ConfigType::cfg_type)].reset(   \

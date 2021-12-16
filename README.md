@@ -4,12 +4,16 @@ leaf is an awesome command-line fuzzy finder.
 
 ## Usage
 ```
-usage: leaf [-h] [--height=N[%]] [-r]
+usage: leaf [-h] [--sort-preference=PREFERENCE] [--height=N[%]] [-r]
 
   Layout
     --height            Display window with the given height N[%] instead of
                         using fullscreen.
     -r, --reverse       Display from the bottom of the screen to top.
+
+  Search
+    --sort-preference   Specify the sort preference to apply, value can be
+                        [begin|end]. (default: begin)
 ```
 
 ## License

@@ -15,6 +15,7 @@ ArgumentParser::ArgumentParser()
         { "-r", "--reverse" }
     }, category_name_ {
         { ArgCategory::Layout, "Layout" },
+        { ArgCategory::Search, "Search" },
     }, args_{
         { "--reverse",
             {
@@ -34,6 +35,16 @@ ArgumentParser::ArgumentParser()
                 "1",
                 "N[%]",
                 "Display window with the given height N[%] instead of using fullscreen."
+            }
+        },
+        { "--sort-preference",
+            {
+                ArgCategory::Search,
+                "",
+                ConfigType::SortPreference,
+                "1",
+                "PREFERENCE",
+                "Specify the sort preference to apply, value can be [begin|end]. (default: begin)"
             }
         },
     }
@@ -240,6 +251,20 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
             }
 
             SetConfigValue(cfg, Height, value);
+            break;
+        }
+        case ConfigType::SortPreference:
+        {
+            if ( val_list[0] == "begin" ) {
+                SetConfigValue(cfg, SortPreference, Preference::Begin);
+            }
+            else if ( val_list[0] == "end" ) {
+                SetConfigValue(cfg, SortPreference, Preference::End);
+            }
+            else {
+                printf("invalid value: %s for %s\r\n", val_list[0].c_str(), key.c_str());
+                std::exit(EXIT_FAILURE);
+            }
             break;
         }
         default:

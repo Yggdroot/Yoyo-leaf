@@ -32,6 +32,7 @@ private:
         SetConfigValue(cfg_, Reverse, false);
         SetConfigValue(cfg_, Height, 0);
         SetConfigValue(cfg_, Indentation, 2);
+        SetConfigValue(cfg_, SortPreference, Preference::Begin);
     }
 
     std::vector<std::unique_ptr<ConfigBase>> cfg_;
