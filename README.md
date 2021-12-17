@@ -1,10 +1,11 @@
-# leaf
+# Yoyo-leaf
 No two leaves are alike, leaf is unique.  
-leaf is an awesome command-line fuzzy finder. 
+Yoyo-leaf is an awesome command-line fuzzy finder.
 
 ## Usage
+
 ```
-usage: leaf [-h] [--sort-preference=PREFERENCE] [--height=N[%]] [-r]
+usage: yy [-h] [--sort-preference=PREFERENCE] [--height=N[%]] [-r]
 
   Layout
     --height            Display window with the given height N[%] instead of

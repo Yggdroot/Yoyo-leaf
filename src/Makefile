@@ -10,7 +10,8 @@ VPATH = $(BUILD_DIR) $(TOP_DIR)
 
 include $(TOP_DIR)/rules.mk
 
-TARGET = leaf
+TARGET = yy
+ALIAS = leaf
 
 .PHONY: $(if $(MAKECMDGOALS), $(MAKECMDGOALS), all)
 
@@ -25,7 +26,7 @@ asan: CXXFLAGS += -g
 asan: LDFLAGS += -fsanitize=address -fno-omit-frame-pointer -fasynchronous-unwind-tables
 asan: goal
 
-goal: build $(DEPS) $(TARGET)
+goal: build $(DEPS) $(TARGET) $(ALIAS)
 
 build:
 	@mkdir -p $(BUILD_DIR)
@@ -33,6 +34,10 @@ build:
 $(TARGET): $(OBJS)
 	-cd $(BUILD_DIR) && \
 		$(CXX) $(^F) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(ALIAS): $(TARGET)
+	-cd $(BUILD_DIR) && \
+		ln -sf $(<F) $@
 
 sinclude $(addprefix $(BUILD_DIR)/,$(DEPS))
 

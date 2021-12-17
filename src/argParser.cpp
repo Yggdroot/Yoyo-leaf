@@ -53,7 +53,7 @@ ArgumentParser::ArgumentParser()
 }
 
 void ArgumentParser::printHelp() {
-    std::string help("usage: leaf [-h]");
+    std::string help("usage: yy [-h]");
     help.reserve(1024);
     std::vector<std::map<std::string, const Argument*>> arg_groups(static_cast<uint32_t>(ArgCategory::MaxNum));
 
@@ -127,7 +127,7 @@ void ArgumentParser::printHelp() {
         }
     }
 
-    printf("%s\r\n", help.c_str());
+    printf("%s\r\nalias: leaf\r\n", help.c_str());
 }
 
 void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_ptr<ConfigBase>>& cfg) {
