@@ -44,7 +44,7 @@ ArgumentParser::ArgumentParser()
                 ConfigType::SortPreference,
                 "1",
                 "PREFERENCE",
-                "Specify the sort preference to apply, value can be [begin|end]. (default: begin)"
+                "Specify the sort preference to apply, value can be [begin|end]. (default: end)"
             }
         },
     }

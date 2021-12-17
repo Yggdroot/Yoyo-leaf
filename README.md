@@ -14,7 +14,7 @@ usage: yy [-h] [--sort-preference=PREFERENCE] [--height=N[%]] [-r]
 
   Search
     --sort-preference   Specify the sort preference to apply, value can be
-                        [begin|end]. (default: begin)
+                        [begin|end]. (default: end)
 
 alias: leaf
 ```
