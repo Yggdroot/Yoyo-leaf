@@ -422,17 +422,16 @@ void Cleanup::doWork() {
 
     auto& cfg = ConfigManager::getInstance();
     auto& tty = Tty::getInstance();
+    tty.enableAutoWrap();
+    tty.disableMouse();
+    tty.showCursor();
     auto height =  cfg.getConfigValue<ConfigType::Height>();
     if ( height == 0 ) {
-        tty.enableAutoWrap();
-        tty.disableMouse();
         tty.disableAlternativeBuffer();
         tty.flush();
     }
     else {
         height = std::max(height, 3u);  // minimum height is 3
-        tty.enableAutoWrap();
-        tty.disableMouse();
         if ( cfg.getConfigValue<ConfigType::Reverse>() ) {
             tty.moveCursor(CursorDirection::Up, height - 1);
         }

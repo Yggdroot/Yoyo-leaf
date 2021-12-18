@@ -118,6 +118,10 @@ public:
         fflush(stdout_);
     }
 
+    void showCursor_s() {
+        write(term_stdout_, "\033[?25h", strlen("\033[?25h"));
+    }
+
     void hideCursor() {
         fprintf(stdout_, "\033[?25l");
     }
@@ -131,7 +135,7 @@ public:
     }
 
     void disableAlternativeBuffer_s() {
-        write(term_stdout_,  "\033[?1049l", strlen( "\033[?1049l"));
+        write(term_stdout_, "\033[?1049l", strlen("\033[?1049l"));
     }
 
     void enableMouse() {

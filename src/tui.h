@@ -242,6 +242,17 @@ public:
         }
     }
 
+    void redrawPrompt(bool normal_mode) {
+        if ( normal_mode ) {
+            Tty::getInstance().addString(cmdline_y_, core_top_left_.col, prompt_,
+                                         cs_.getColor(HighlightGroup::NormalMode));
+        }
+        else {
+            Tty::getInstance().addString(cmdline_y_, core_top_left_.col, prompt_,
+                                         cs_.getColor(HighlightGroup::Prompt));
+        }
+        Tty::getInstance().restoreCursorPosition();
+    }
 private:
 
     void _setCmdline();
@@ -422,6 +433,10 @@ public:
 
     void showFlag(bool show) {
         p_main_win_->showFlag(show);
+    }
+
+    void redrawPrompt(bool normal_mode) {
+        p_main_win_->redrawPrompt(normal_mode);
     }
 
     void setAccept() {

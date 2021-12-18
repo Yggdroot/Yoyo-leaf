@@ -28,6 +28,7 @@ void SignalManager::catchSignal(int sig, siginfo_t *info, void *ctxt) {
     auto& tty = Tty::getInstance();
     tty.enableAutoWrap_s();
     tty.disableMouse_s();
+    tty.showCursor_s();
     if ( ConfigManager::getInstance().getConfigValue<ConfigType::Height>() == 0 ) {
         tty.disableAlternativeBuffer_s();
     }
@@ -676,12 +677,35 @@ void Application::_input() {
 
     TimePoint cur_time;
     auto start_time = TimePoint();
+    bool normal_mode = false;
     std::string pattern;
     uint32_t cursor_pos = 0;
     Operation last_op = Operation::Invalid;
     while ( true ) {
         auto tup = Tty::getInstance().getchar();
         auto key = std::get<0>(tup);
+        if ( key == Key::Ctrl_I ) { // tab
+            normal_mode = !normal_mode;
+            if ( normal_mode ) {
+                tui_.redrawPrompt(true);
+            }
+            else {
+                tui_.redrawPrompt(false);
+            }
+        }
+
+        if ( normal_mode ) {
+            if ( std::get<1>(tup) == "j" ) {
+                key = Key::Ctrl_J;
+            }
+            else if ( std::get<1>(tup) == "k" ) {
+                key = Key::Ctrl_K;
+            }
+            else if ( key == Key::Char ) {
+                key = Key::Unknown;
+            }
+        }
+
         if ( key == Key::Char ) {
             last_op = Operation::Input;
             pattern.insert(cursor_pos, std::get<1>(tup));
