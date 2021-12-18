@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <execinfo.h>
 #include <chrono>
@@ -77,6 +78,30 @@ void SignalManager::catchSignal(int sig, siginfo_t *info, void *ctxt) {
     const char* header = "\n******************** Backtrace ********************\n\n";
     write(STDERR_FILENO, header, strlen(header));
     backtrace_symbols_fd(arr, size, STDERR_FILENO);
+
+    auto pid = fork();
+    if ( pid < 0 ) {
+        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        std::exit(EXIT_FAILURE);
+    }
+    else if ( pid == 0 ) {
+        header = "\n******************** gdb Backtrace ********************\n\n";
+        write(STDERR_FILENO, header, strlen(header));
+
+        if ( dup2(STDERR_FILENO, STDOUT_FILENO) < 0 ) {
+            Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+            std::exit(EXIT_FAILURE);
+        }
+        char pid_buf[24];
+        sprintf(pid_buf, "%d", getppid());
+        execlp("gdb", "gdb", "--batch", "-n", "-iex",
+               "set auto-load safe-path /", "-ex", "bt", "-p", pid_buf, nullptr);
+    } else {
+        if ( waitpid(pid, nullptr, 0) < 0 ) {
+            Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+            std::exit(EXIT_FAILURE);
+        }
+    }
 
     // default behavior, so that a core file can be produced
     struct sigaction act;

@@ -26,7 +26,7 @@ public:
 
     ~Error() {
         for ( const auto& err : err_msgs_ ) {
-            printf("%s\r\n", err.c_str());
+            fprintf(stderr, "%s\r\n", err.c_str());
         }
     }
 private:
