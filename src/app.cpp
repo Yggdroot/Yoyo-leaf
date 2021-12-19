@@ -5,6 +5,7 @@
 #include <chrono>
 #include <thread>
 #include <algorithm>
+#include <regex>
 
 #include "app.h"
 #include "utils.h"
@@ -81,16 +82,64 @@ void SignalManager::catchSignal(int sig, siginfo_t *info, void *ctxt) {
 
     auto pid = fork();
     if ( pid < 0 ) {
-        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
-        std::exit(EXIT_FAILURE);
+        msg = strerror(errno);
+        write(STDERR_FILENO, msg, strlen(msg));
+        std::_Exit(EXIT_FAILURE);
+    }
+    else if ( pid == 0 ) {
+        header = "\n******************** addr2line Backtrace ********************\n\n";
+        write(STDERR_FILENO, header, strlen(header));
+
+        if ( dup2(STDERR_FILENO, STDOUT_FILENO) < 0 ) {
+            perror("dup2()");
+            std::_Exit(EXIT_FAILURE);
+        }
+
+        char** stacktrace = backtrace_symbols(arr, size);
+        if ( stacktrace == nullptr ) {
+            perror("backtrace_symbols()");
+            std::_Exit(EXIT_FAILURE);
+        }
+
+        for ( size_t i = 0; i < size; ++i ) {
+            std::string str(stacktrace[i]);
+            std::smatch sm;
+            std::regex_match(str, sm, std::regex("(.*)\\((.*)\\)\\s*\\[(.*)\\]"));
+            auto exe = sm.str(1);
+            auto addr1 = sm.str(2);
+            auto addr2 = sm.str(3);
+            if ( !addr1.empty() && addr1[0] == '+' ) {
+                addr2 = addr1;
+            }
+
+            if ( system(("addr2line -apfCi -e " + exe + " " + addr2).c_str()) < 0 ) {
+                perror("system()");
+                std::_Exit(EXIT_FAILURE);
+            }
+        }
+
+        free(stacktrace);
+    } else {
+        if ( waitpid(pid, nullptr, 0) < 0 ) {
+            msg = strerror(errno);
+            write(STDERR_FILENO, msg, strlen(msg));
+            std::_Exit(EXIT_FAILURE);
+        }
+    }
+
+    pid = fork();
+    if ( pid < 0 ) {
+        msg = strerror(errno);
+        write(STDERR_FILENO, msg, strlen(msg));
+        std::_Exit(EXIT_FAILURE);
     }
     else if ( pid == 0 ) {
         header = "\n******************** gdb Backtrace ********************\n\n";
         write(STDERR_FILENO, header, strlen(header));
 
         if ( dup2(STDERR_FILENO, STDOUT_FILENO) < 0 ) {
-            Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
-            std::exit(EXIT_FAILURE);
+            perror("dup2()");
+            std::_Exit(EXIT_FAILURE);
         }
         char pid_buf[24];
         sprintf(pid_buf, "%d", getppid());
@@ -98,8 +147,9 @@ void SignalManager::catchSignal(int sig, siginfo_t *info, void *ctxt) {
                "set auto-load safe-path /", "-ex", "bt", "-p", pid_buf, nullptr);
     } else {
         if ( waitpid(pid, nullptr, 0) < 0 ) {
-            Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
-            std::exit(EXIT_FAILURE);
+            msg = strerror(errno);
+            write(STDERR_FILENO, msg, strlen(msg));
+            std::_Exit(EXIT_FAILURE);
         }
     }
 
