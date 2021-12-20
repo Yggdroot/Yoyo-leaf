@@ -369,6 +369,8 @@ Tui::Tui()
 
     auto height =  cfg_.getConfigValue<ConfigType::Height>();
     if ( height == 0 ) {
+        tty_.getCursorPosition(orig_cursor_pos_.line, orig_cursor_pos_.col);
+        cleanup_.saveCursorPosition(orig_cursor_pos_);
         tty_.enableAlternativeBuffer();
         tty_.enableMouse();
         tty_.disableAutoWrap();
@@ -427,7 +429,9 @@ void Cleanup::doWork() {
     tty.showCursor();
     auto height =  cfg.getConfigValue<ConfigType::Height>();
     if ( height == 0 ) {
+        tty.clear(EraseMode::EntireScreen);
         tty.disableAlternativeBuffer();
+        tty.moveCursorTo(orig_cursor_pos_.line, orig_cursor_pos_.col);
         tty.flush();
     }
     else {

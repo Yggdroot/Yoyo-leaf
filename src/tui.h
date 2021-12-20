@@ -304,8 +304,13 @@ class Cleanup final : public Singleton<Cleanup>
 public:
     ~Cleanup();
     void doWork();
+    void saveCursorPosition(const Point& orig_cursor_pos) {
+        orig_cursor_pos_ = orig_cursor_pos;
+    }
+
 private:
     bool done_{false};
+    Point orig_cursor_pos_{ 0, 0 };
 };
 
 class Tui final
@@ -451,6 +456,7 @@ private:
     std::unique_ptr<MainWindow> p_main_win_;
     std::unique_ptr<PreviewWindow> p_preview_win_;
     bool accept_{ false };
+    Point orig_cursor_pos_{ 0, 0 };
 
 };
 
