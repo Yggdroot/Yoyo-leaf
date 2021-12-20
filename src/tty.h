@@ -101,15 +101,18 @@ public:
     }
 
     void saveCursorPosition() {
-        fprintf(stdout_, "\033[s");
+        //fprintf(stdout_, "\033[s");
+        fprintf(stdout_, "\0337");
     }
 
     void saveCursorPosition(uint32_t line, uint32_t col) {
-        fprintf(stdout_, "\033[%u;%uH\033[s", line, col);
+        //fprintf(stdout_, "\033[%u;%uH\033[s", line, col);
+        fprintf(stdout_, "\033[%u;%uH\0337", line, col);
     }
 
     void restoreCursorPosition() {
-        fprintf(stdout_, "\033[u");
+        //fprintf(stdout_, "\033[u");
+        fprintf(stdout_, "\0338");
         fflush(stdout_);
     }
 
@@ -271,13 +274,15 @@ public:
 
     template <typename T>
     void addStringAndSave(uint32_t line, uint32_t col, T&& str) {
-        fprintf(stdout_, "\033[%u;%uH%s\033[s", line, col, String::c_str(std::forward<T>(str)));
+        //fprintf(stdout_, "\033[%u;%uH%s\033[s", line, col, String::c_str(std::forward<T>(str)));
+        fprintf(stdout_, "\033[%u;%uH%s\0337", line, col, String::c_str(std::forward<T>(str)));
     }
 
     template <typename T, typename C>
     void addStringAndSave(uint32_t line, uint32_t col, T&& str, C&& color) {
         static_assert(std::is_same<std::decay_t<C>, std::string>::value, "color must be std::string!");
-        fprintf(stdout_, "\033[%u;%uH%s%s\033[0m\033[s", line, col, color.c_str(), String::c_str(std::forward<T>(str)));
+        //fprintf(stdout_, "\033[%u;%uH%s%s\033[0m\033[s", line, col, color.c_str(), String::c_str(std::forward<T>(str)));
+        fprintf(stdout_, "\033[%u;%uH%s%s\033[0m\0337", line, col, color.c_str(), String::c_str(std::forward<T>(str)));
     }
 
     void exit() {
