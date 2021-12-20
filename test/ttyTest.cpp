@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include "tty.h"
+#include "color.h"
 
 using namespace leaf;
 using namespace std;
