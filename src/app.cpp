@@ -520,7 +520,6 @@ void Application::_handleSignal() {
                 break;
             case SIGCONT:
                 Tty::getInstance().setNewTerminal();
-                tui_.init(true);
                 _resume();
                 break;
             case SIGWINCH:
@@ -1233,6 +1232,7 @@ void Application::_updateResult(uint32_t result_size, const std::string& pattern
 }
 
 void Application::_resume() {
+    tui_.init(true);
     cmdline_queue_.put([this] {
         tui_.redrawPrompt(normal_mode_);
         tui_.updateCmdline(pattern_);
