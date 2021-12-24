@@ -164,6 +164,7 @@ private:
     void _initBuffer();
     void _notifyExit();
     void _showFlag();
+    void _resume();
 
     std::vector<HighlightString> _generateHighlightStr(uint32_t first, uint32_t last,
                                                        const std::string& pattern);
@@ -196,6 +197,7 @@ private:
     const uint32_t step_;
     Point    current_yx_;
     uint32_t indent_{ ConfigManager::getInstance().getConfigValue<ConfigType::Indentation>() };
+    bool     normal_mode_{ false };
 
     FuzzyEngine fuzzy_engine_;
     Preference  preference_{ ConfigManager::getInstance().getConfigValue<ConfigType::SortPreference>() };

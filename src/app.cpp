@@ -515,13 +515,13 @@ void Application::_handleSignal() {
                 Tty::getInstance().exit();
                 return;
             case SIGTSTP:
-                Tty::getInstance().disableAlternativeBuffer();
-                Tty::getInstance().flush();
+                Cleanup::getInstance().doWork(false);
                 kill(getpid(), SIGSTOP);
                 break;
             case SIGCONT:
-                Tty::getInstance().enableAlternativeBuffer();
-                Tty::getInstance().flush();
+                Tty::getInstance().setNewTerminal();
+                tui_.init(true);
+                _resume();
                 break;
             case SIGWINCH:
                 break;
@@ -752,7 +752,6 @@ void Application::_input() {
 
     TimePoint cur_time;
     auto start_time = TimePoint();
-    bool normal_mode = false;
     std::string pattern;
     uint32_t cursor_pos = 0;
     Operation last_op = Operation::Invalid;
@@ -760,16 +759,13 @@ void Application::_input() {
         auto tup = Tty::getInstance().getchar();
         auto key = std::get<0>(tup);
         if ( key == Key::Ctrl_I ) { // tab
-            normal_mode = !normal_mode;
-            if ( normal_mode ) {
-                tui_.redrawPrompt(true);
-            }
-            else {
-                tui_.redrawPrompt(false);
-            }
+            normal_mode_ = !normal_mode_;
+            cmdline_queue_.put([this] {
+                tui_.redrawPrompt(normal_mode_);
+            });
         }
 
-        if ( normal_mode ) {
+        if ( normal_mode_ ) {
             if ( std::get<1>(tup) == "j" ) {
                 key = Key::Ctrl_J;
             }
@@ -1234,6 +1230,15 @@ void Application::_updateResult(uint32_t result_size, const std::string& pattern
         }
         result_cond_.notify_one();
     }
+}
+
+void Application::_resume() {
+    cmdline_queue_.put([this] {
+        tui_.redrawPrompt(normal_mode_);
+        tui_.updateCmdline(pattern_);
+        tui_.updateLineInfo();
+        tui_.setBuffer<MainWindow>();
+    });
 }
 
 } // end namespace leaf

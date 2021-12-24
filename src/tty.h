@@ -8,6 +8,8 @@ _Pragma("once");
 #include <string>
 #include <atomic>
 #include <unordered_map>
+#include <mutex>
+#include <condition_variable>
 #include "singleton.h"
 #include "consts.h"
 
@@ -21,7 +23,7 @@ class Tty final : public Singleton<Tty>
 public:
     ~Tty();
 
-    std::tuple<Key, std::string> getchar() const;
+    std::tuple<Key, std::string> getchar();
 
     // Moves the cursor n (default 1) cells in the given direction.
     // If the cursor is already at the edge of the screen, this has no effect.
@@ -208,11 +210,47 @@ public:
     }
 
     int getCursorPosition(uint32_t& line, uint32_t& col) {
-        fprintf(stdout_, "\033[6n");
-        fflush(stdout_);
-        if (fscanf(stdin_, "\033[%u;%uR", &line, &col) < 2) {
+        if ( write(STDOUT_FILENO, "\033[6n", 4) != 4 ) {
+            perror("write");
             return -1;
         }
+
+        char buffer[32] = { 0 };
+        if ( read(term_stdin_, buffer, sizeof(buffer) - 1) < 0 ) {
+            perror("read");
+            return -1;
+        }
+
+        uint32_t i = 0;
+        while ( buffer[i] != '\0' ) {
+            if ( buffer[i] == '\033' ) {
+                break;
+            }
+            ++i;
+        }
+
+        if ( sscanf(&buffer[i], "\033[%u;%uR", &line, &col) != 2 ) {
+            return -1;
+        }
+
+        return 0;
+    }
+
+    int getCursorPosition2(uint32_t& line, uint32_t& col) {
+        cursor_pos_ = true;
+        if ( write(STDOUT_FILENO, "\033[6n", 4) != 4 ) {
+            perror("write");
+            return -1;
+        }
+
+        std::unique_lock<std::mutex> lock(mutex_);
+        while ( cursor_pos_ == true ) {
+            cursor_cond_.wait(lock);
+        }
+
+        line = cursor_line_;
+        col = cursor_col_;
+
         return 0;
     }
 
@@ -221,7 +259,25 @@ public:
         if (ioctl(term_stdout_, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
             saveCursorPosition();
             moveCursorTo(1024, 1024);
+            fflush(stdout_);
             int ret = getCursorPosition(lines, cols);
+            restoreCursorPosition();
+            return ret;
+        }
+        else {
+            cols = ws.ws_col;
+            lines = ws.ws_row;
+            return 0;
+        }
+    }
+
+    int getWindowSize2(uint32_t& lines, uint32_t& cols) {
+        struct winsize ws;
+        if (ioctl(term_stdout_, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
+            saveCursorPosition();
+            moveCursorTo(1024, 1024);
+            fflush(stdout_);
+            int ret = getCursorPosition2(lines, cols);
             restoreCursorPosition();
             return ret;
         }
@@ -288,10 +344,14 @@ public:
     void exit() {
         running_.store(false, std::memory_order_relaxed);
     }
+
+    void restoreOrigTerminal();
+    void setNewTerminal();
 private:
     Tty();
     void _init();
     std::string _mouseTracking(const std::string& esc_code, Key& key) const;
+    bool _getCursorPos(const std::string& esc_code);
 private:
     int term_stdin_{ STDIN_FILENO };
     int term_stdout_{ STDOUT_FILENO };
@@ -299,9 +359,15 @@ private:
     FILE* stdout_{ stdout };
     const char* color_names_[256];
     struct termios orig_term_;
+    struct termios new_term_;
     using EscCodeMap = std::unordered_map<std::string, Key>;
     EscCodeMap esc_codes_;
     std::atomic<bool> running_{ true };
+    bool cursor_pos_{ false };
+    mutable std::mutex mutex_;
+    std::condition_variable cursor_cond_;
+    uint32_t cursor_line_{ 0 };
+    uint32_t cursor_col_{ 0 };
 
 };
 

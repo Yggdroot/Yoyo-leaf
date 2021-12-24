@@ -83,10 +83,7 @@ Tty::Tty(): color_names_ {
 }
 
 Tty::~Tty() {
-    if ( tcsetattr(term_stdin_, TCSAFLUSH, &orig_term_) == -1 ) {
-        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
-        std::exit(EXIT_FAILURE);
-    }
+    restoreOrigTerminal();
 
     if ( !isatty(STDIN_FILENO) ) {
         fclose(stdin_);
@@ -118,23 +115,20 @@ void Tty::_init() {
         std::exit(EXIT_FAILURE);
     }
 
-    struct termios term = orig_term_;
+    new_term_ = orig_term_;
     // ICRNL separate Ctrl-M from Ctrl-J
     // IXON disable Ctrl-S and Ctrl-Q
-    term.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-    term.c_oflag &= ~(OPOST);
+    new_term_.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+    new_term_.c_oflag &= ~(OPOST);
     // IEXTEN disable Ctrl-V
-    term.c_lflag &= ~(ECHO | ICANON | IEXTEN);
-    term.c_cflag |= (CS8);
-    term.c_cc[VMIN] = 0;
-    term.c_cc[VTIME] = 1;
+    new_term_.c_lflag &= ~(ECHO | ICANON | IEXTEN);
+    new_term_.c_cflag |= (CS8);
+    new_term_.c_cc[VMIN] = 0;
+    new_term_.c_cc[VTIME] = 1;
 
-    //term.c_iflag |= (IUTF8);
+    //new_term_.c_iflag |= (IUTF8);
 
-    if ( tcsetattr(term_stdin_, TCSAFLUSH, &term) == -1 ) {
-        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
-        std::exit(EXIT_FAILURE);
-    }
+    setNewTerminal();
 
 #if 0
     // shell command
@@ -416,6 +410,20 @@ void Tty::_init() {
     };
 }
 
+void Tty::restoreOrigTerminal() {
+    if ( tcsetattr(term_stdin_, TCSANOW, &orig_term_) == -1 ) {
+        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        std::exit(EXIT_FAILURE);
+    }
+}
+
+void Tty::setNewTerminal() {
+    if ( tcsetattr(term_stdin_, TCSANOW, &new_term_) == -1 ) {
+        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        std::exit(EXIT_FAILURE);
+    }
+}
+
 enum class KeyType
 {
     Empty,
@@ -424,7 +432,7 @@ enum class KeyType
     EscCode
 };
 
-std::tuple<Key, std::string> Tty::getchar() const {
+std::tuple<Key, std::string> Tty::getchar() {
     static char left_char = -1;
     static char last_char = -1;
     static KeyType last_type = KeyType::Empty;
@@ -487,7 +495,13 @@ std::tuple<Key, std::string> Tty::getchar() const {
                         else {
                             auto k = Key::Unknown;
                             auto xy = _mouseTracking(esc_code, k);
-                            return std::make_tuple(k, std::move(xy));
+                            if ( k != Key::Unknown ) {
+                                return std::make_tuple(k, std::move(xy));
+                            }
+                            else {
+                                _getCursorPos(esc_code);
+                                return std::make_tuple(Key::Unknown, std::string());
+                            }
                         }
                     }
                 }
@@ -497,6 +511,9 @@ std::tuple<Key, std::string> Tty::getchar() const {
                     auto xy = _mouseTracking(esc_code, k);
                     if ( k != Key::Unknown ) {
                         return std::make_tuple(k, std::move(xy));
+                    }
+                    if ( _getCursorPos(esc_code) ) {
+                        return std::make_tuple(Key::Unknown, std::string());
                     }
                 }
             }
@@ -518,7 +535,13 @@ std::tuple<Key, std::string> Tty::getchar() const {
                     else {
                         auto k = Key::Unknown;
                         auto xy = _mouseTracking(esc_code, k);
-                        return std::make_tuple(k, std::move(xy));
+                        if ( k != Key::Unknown ) {
+                            return std::make_tuple(k, std::move(xy));
+                        }
+                        else {
+                            _getCursorPos(esc_code);
+                            return std::make_tuple(Key::Unknown, std::string());
+                        }
                     }
                 }
             }
@@ -636,6 +659,19 @@ std::string Tty::_mouseTracking(const std::string& esc_code, Key& key) const {
     }
 
     return esc_code;
+}
+
+bool Tty::_getCursorPos(const std::string& esc_code) {
+    std::smatch sm;
+    if ( cursor_pos_ == true && std::regex_match(esc_code, sm, std::regex("\033\\[(\\d+);(\\d+)R")) ) {
+        cursor_line_ = stoi(sm.str(1));
+        cursor_col_ = stoi(sm.str(2));
+        std::lock_guard<std::mutex> lock(mutex_);
+        cursor_pos_ = false;
+        cursor_cond_.notify_one();
+        return true;
+    }
+    return false;
 }
 
 } // end namespace leaf

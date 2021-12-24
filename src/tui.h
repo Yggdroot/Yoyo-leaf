@@ -40,6 +40,8 @@ public:
     Window(const Point& tl, const Point& br, const Colorscheme& cs);
     virtual ~Window() = default;
 
+    void _init(const Point& tl, const Point& br);
+
     uint32_t getHeight() const noexcept {
         return height_;
     }
@@ -82,6 +84,7 @@ public:
     }
 
     void setBuffer(Generator&& generator);
+    void setBuffer();
 
     const std::vector<HighlightString>& getBuffer() const noexcept {
         return buffer_;
@@ -216,12 +219,24 @@ public:
         _setCmdline();
     }
 
+    void reset(const Point& tl, const Point& br) {
+        _init(tl, br);
+        _setCmdline();
+    }
+
     virtual void display() const override {
         _displayCmdline();
     }
 
     void updateLineInfo(uint32_t result_size, uint32_t total_size);
+    void updateLineInfo() {
+        updateLineInfo(result_size_, total_size_);
+    }
+
     void updateCmdline(const std::string& pattern, uint32_t cursor_pos);
+    void updateCmdline(const std::string& pattern) {
+        updateCmdline(pattern, cursor_pos_);
+    }
 
     void showFlag(bool show) {
         const std::string flag[] = { "◐", "◒", "◑", "◓" };
@@ -253,6 +268,7 @@ public:
         }
         Tty::getInstance().restoreCursorPosition();
     }
+
 private:
 
     void _setCmdline();
@@ -280,6 +296,7 @@ private:
                         // otherwise, it is the beginning position of the string
     uint32_t result_size_{ 0 };
     uint32_t total_size_{ 0 };
+    uint32_t cursor_pos_{ 0 };
     static constexpr uint32_t right_boundary{ 50 };
 
     std::atomic<uint32_t> flag_col_{ 1 };
@@ -303,14 +320,18 @@ class Cleanup final : public Singleton<Cleanup>
     friend Singleton<Cleanup>;
 public:
     ~Cleanup();
-    void doWork();
+    void doWork(bool once=true);
     void saveCursorPosition(const Point& orig_cursor_pos) {
         orig_cursor_pos_ = orig_cursor_pos;
     }
 
+    void saveWindowHeight(uint32_t win_height) {
+        win_height_ = win_height;
+    }
 private:
     bool done_{false};
     Point orig_cursor_pos_{ 0, 0 };
+    uint32_t win_height_{ 10000 };
 };
 
 class Tui final
@@ -318,6 +339,8 @@ class Tui final
 public:
     Tui();
     ~Tui();
+
+    void init(bool resume);
 
     template<typename... Args>
     void setMainWindow(Args&&... args) {
@@ -353,6 +376,14 @@ public:
         auto& w = getWindow(WindowType<T>());
         if ( w ) {
             w->setBuffer(std::move(generator));
+        }
+    }
+
+    template <typename T>
+    void setBuffer() {
+        auto& w = getWindow(WindowType<T>());
+        if ( w ) {
+            w->setBuffer();
         }
     }
 
@@ -432,8 +463,16 @@ public:
         p_main_win_->updateCmdline(pattern, cursor_pos);
     }
 
+    void updateCmdline(const std::string& pattern) {
+        p_main_win_->updateCmdline(pattern);
+    }
+
     void updateLineInfo(uint32_t result_size, uint32_t total_size) {
         p_main_win_->updateLineInfo(result_size, total_size);
+    }
+
+    void updateLineInfo() {
+        p_main_win_->updateLineInfo();
     }
 
     void showFlag(bool show) {
@@ -456,7 +495,6 @@ private:
     std::unique_ptr<MainWindow> p_main_win_;
     std::unique_ptr<PreviewWindow> p_preview_win_;
     bool accept_{ false };
-    Point orig_cursor_pos_{ 0, 0 };
 
 };
 

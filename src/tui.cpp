@@ -5,8 +5,16 @@ namespace leaf
 {
 
 Window::Window(const Point& tl, const Point& br, const Colorscheme& cs)
-    :top_left_(tl), bottom_right_(br), core_top_left_(top_left_), cs_(cs)
+    : cs_(cs)
 {
+    _init(tl, br);
+}
+
+void Window::_init(const Point& tl, const Point& br) {
+    top_left_ = tl;
+    bottom_right_ = br;
+    core_top_left_ = top_left_;
+
     height_ = bottom_right_.line - top_left_.line + 1;
     width_ = bottom_right_.col - top_left_.col + 1;
     core_height_ = height_;
@@ -23,6 +31,7 @@ Window::Window(const Point& tl, const Point& br, const Colorscheme& cs)
 void Window::setBuffer(Generator&& generator) {
     generator_ = std::move(generator);
     buffer_ = generator_();
+
     uint32_t orig_cursorline_y = core_top_left_.line + cursor_line_ - first_line_;
     if ( is_reverse_ ) {
         orig_cursorline_y = core_top_left_.line - (cursor_line_ - first_line_);
@@ -30,6 +39,15 @@ void Window::setBuffer(Generator&& generator) {
     first_line_ = 0;
     last_line_ = std::min(core_height_, static_cast<decltype(core_height_)>(buffer_.size()));
     cursor_line_ = 0;
+
+    _render(orig_cursorline_y);
+}
+
+void Window::setBuffer() {
+    uint32_t orig_cursorline_y = core_top_left_.line + cursor_line_ - first_line_;
+    if ( is_reverse_ ) {
+        orig_cursorline_y = core_top_left_.line - (cursor_line_ - first_line_);
+    }
 
     _render(orig_cursorline_y);
 }
@@ -264,6 +282,7 @@ void MainWindow::updateLineInfo(uint32_t result_size, uint32_t total_size) {
 }
 
 void MainWindow::updateCmdline(const std::string& pattern, uint32_t cursor_pos) {
+    cursor_pos_ = cursor_pos;
     auto& tty = Tty::getInstance();
     if ( line_info_.line == cmdline_y_ ) {
         auto total = std::to_string(total_size_);
@@ -360,17 +379,39 @@ Tui::Tui()
     cfg_(ConfigManager::getInstance()),
     cleanup_(Cleanup::getInstance())
 {
+    init(false);
+}
+
+void Tui::init(bool resume) {
     uint32_t win_height = 0;
     uint32_t win_width = 0;
-    tty_.getWindowSize(win_height, win_width);
+    if ( !resume ) {
+        tty_.getWindowSize(win_height, win_width);
+    }
+    else {
+        tty_.getWindowSize2(win_height, win_width);
+    }
 
     Point top_left(1, 1);
     Point bottom_right(win_height, win_width);
 
+    cleanup_.saveWindowHeight(win_height);
+
+    uint32_t line = 0;
+    uint32_t col = 0;
+    if ( !resume ) {
+        tty_.getCursorPosition(line, col);
+    }
+    else {
+        tty_.getCursorPosition2(line, col);
+    }
+
     auto height =  cfg_.getConfigValue<ConfigType::Height>();
-    if ( height == 0 ) {
-        tty_.getCursorPosition(orig_cursor_pos_.line, orig_cursor_pos_.col);
-        cleanup_.saveCursorPosition(orig_cursor_pos_);
+    if ( height == 0 || height >= win_height ) {
+        Point orig_cursor_pos;
+        orig_cursor_pos.line = line;
+        orig_cursor_pos.col = col;
+        cleanup_.saveCursorPosition(orig_cursor_pos);
         tty_.enableAlternativeBuffer();
         tty_.enableMouse();
         tty_.disableAutoWrap();
@@ -380,16 +421,15 @@ Tui::Tui()
         height = std::max(height, 3u);  // minimum height is 3
         tty_.enableMouse();
         tty_.disableAutoWrap();
-        uint32_t line = 0;
-        uint32_t col = 0;
-        tty_.getCursorPosition(line, col);
         if ( win_height - line < height ) {
             auto delta_height = height - (win_height - line);
             tty_.scrollUp(delta_height - 1);
             tty_.moveCursor(CursorDirection::Up, delta_height - 1);
-            tty_.getCursorPosition(line, col);
+            tty_.flush();
+            line = win_height - height + 1;
         }
         else {
+            tty_.flush();
             bottom_right.line = line + height - 1;
         }
 
@@ -397,12 +437,17 @@ Tui::Tui()
         top_left.col = col;
     }
 
-    setMainWindow(top_left, bottom_right, cs_);
-    p_main_win_->display();
+    if ( !resume ) {
+        setMainWindow(top_left, bottom_right, cs_);
+        p_main_win_->display();
+    }
+    else {
+        p_main_win_->reset(top_left, bottom_right);
+    }
 }
 
 Tui::~Tui() {
-    cleanup_.doWork();
+    cleanup_.doWork(true);
 
     if ( accept_ ) {
         p_main_win_->printAcceptedStrings();
@@ -413,12 +458,12 @@ Cleanup::~Cleanup() {
     if ( !done_ ) {
         // reduce the possibility that cmdline thread is still running
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        doWork();
+        doWork(true);
     }
 }
 
-void Cleanup::doWork() {
-    if ( !done_ ) {
+void Cleanup::doWork(bool once) {
+    if ( once && !done_ ) {
         done_ = true;
     }
 
@@ -428,7 +473,7 @@ void Cleanup::doWork() {
     tty.disableMouse();
     tty.showCursor();
     auto height =  cfg.getConfigValue<ConfigType::Height>();
-    if ( height == 0 ) {
+    if ( height == 0 || height >= win_height_ ) {
         tty.clear(EraseMode::EntireScreen);
         tty.disableAlternativeBuffer();
         tty.moveCursorTo(orig_cursor_pos_.line, orig_cursor_pos_.col);
