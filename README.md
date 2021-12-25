@@ -20,5 +20,5 @@ alias: leaf
 ```
 
 ## License
-This plugin is released under the Apache License, Version 2.0 (the "License").
+This software is released under the Apache License, Version 2.0 (the "License").
 
