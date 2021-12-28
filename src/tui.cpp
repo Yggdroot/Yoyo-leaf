@@ -488,6 +488,8 @@ void Cleanup::doWork(bool once) {
         tty.clear(EraseMode::ToScreenEnd);
         tty.flush();
     }
+
+    tty.restoreOrigTerminal();
 }
 
 } // end namespace leaf

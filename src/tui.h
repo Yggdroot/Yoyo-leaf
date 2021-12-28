@@ -162,8 +162,8 @@ public:
 
     void printAcceptedStrings() const noexcept {
         if ( !buffer_.empty() ) {
-            printf("%s\r\n", std::string(buffer_[cursor_line_].raw_str.str,
-                                         buffer_[cursor_line_].raw_str.len).c_str());
+            printf("%s\n", std::string(buffer_[cursor_line_].raw_str.str,
+                                       buffer_[cursor_line_].raw_str.len).c_str());
         }
     }
 

@@ -210,7 +210,7 @@ public:
     }
 
     int getCursorPosition(uint32_t& line, uint32_t& col) {
-        if ( write(STDOUT_FILENO, "\033[6n", 4) != 4 ) {
+        if ( write(term_stdout_, "\033[6n", 4) != 4 ) {
             perror("write");
             return -1;
         }
@@ -238,7 +238,7 @@ public:
 
     int getCursorPosition2(uint32_t& line, uint32_t& col) {
         cursor_pos_ = true;
-        if ( write(STDOUT_FILENO, "\033[6n", 4) != 4 ) {
+        if ( write(term_stdout_, "\033[6n", 4) != 4 ) {
             perror("write");
             return -1;
         }

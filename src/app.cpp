@@ -34,6 +34,7 @@ void SignalManager::catchSignal(int sig, siginfo_t *info, void *ctxt) {
     if ( ConfigManager::getInstance().getConfigValue<ConfigType::Height>() == 0 ) {
         tty.disableAlternativeBuffer_s();
     }
+    tty.restoreOrigTerminal();
     tty.~Tty(); // not safe
 
     const char* msg = "";

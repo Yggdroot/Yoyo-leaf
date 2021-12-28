@@ -83,32 +83,24 @@ Tty::Tty(): color_names_ {
 }
 
 Tty::~Tty() {
-    restoreOrigTerminal();
-
-    if ( !isatty(STDIN_FILENO) ) {
-        fclose(stdin_);
-        fclose(stdout_);
-    }
+    fclose(stdin_);
+    fclose(stdout_);
 }
 
 void Tty::_init() {
-    if ( isatty(STDIN_FILENO) ) {
+    stdin_ = fopen("/dev/tty", "r");
+    if ( stdin_ == nullptr ) {
+        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        std::exit(EXIT_FAILURE);
     }
-    else {
-        stdin_ = fopen("/dev/tty", "r");
-        if ( stdin_ == nullptr ) {
-            Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
-            std::exit(EXIT_FAILURE);
-        }
-        term_stdin_ = fileno(stdin_);
+    term_stdin_ = fileno(stdin_);
 
-        stdout_ = fopen("/dev/tty", "w");
-        if ( stdout_ == nullptr ) {
-            Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
-            std::exit(EXIT_FAILURE);
-        }
-        term_stdout_ = fileno(stdout_);
+    stdout_ = fopen("/dev/tty", "w");
+    if ( stdout_ == nullptr ) {
+        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        std::exit(EXIT_FAILURE);
     }
+    term_stdout_ = fileno(stdout_);
 
     if ( tcgetattr(term_stdin_, &orig_term_) == -1 ) {
         Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
