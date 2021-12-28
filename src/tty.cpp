@@ -409,6 +409,14 @@ void Tty::restoreOrigTerminal() {
     }
 }
 
+void Tty::restoreOrigTerminal_s() {
+    if ( tcsetattr(term_stdin_, TCSANOW, &orig_term_) == -1 ) {
+        const char* msg = strerror(errno);
+        write(STDERR_FILENO, msg, strlen(msg));
+        std::_Exit(EXIT_FAILURE);
+    }
+}
+
 void Tty::setNewTerminal() {
     if ( tcsetattr(term_stdin_, TCSANOW, &new_term_) == -1 ) {
         Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));

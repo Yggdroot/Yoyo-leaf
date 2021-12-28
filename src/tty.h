@@ -346,6 +346,7 @@ public:
     }
 
     void restoreOrigTerminal();
+    void restoreOrigTerminal_s();
     void setNewTerminal();
 private:
     Tty();
