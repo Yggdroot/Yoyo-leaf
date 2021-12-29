@@ -35,7 +35,6 @@ void SignalManager::catchSignal(int sig, siginfo_t *info, void *ctxt) {
         tty.disableAlternativeBuffer_s();
     }
     tty.restoreOrigTerminal_s();
-    tty.~Tty(); // not safe
 
     const char* msg = "";
     switch ( sig ) {
@@ -83,7 +82,7 @@ void SignalManager::catchSignal(int sig, siginfo_t *info, void *ctxt) {
 
     auto pid = fork();
     if ( pid < 0 ) {
-        msg = strerror(errno);
+        msg = "fork error\n";
         write(STDERR_FILENO, msg, strlen(msg));
         std::_Exit(EXIT_FAILURE);
     }
@@ -122,7 +121,7 @@ void SignalManager::catchSignal(int sig, siginfo_t *info, void *ctxt) {
         free(stacktrace);
     } else {
         if ( waitpid(pid, nullptr, 0) < 0 ) {
-            msg = strerror(errno);
+            msg = "waitpid error\n";
             write(STDERR_FILENO, msg, strlen(msg));
             std::_Exit(EXIT_FAILURE);
         }
@@ -130,7 +129,7 @@ void SignalManager::catchSignal(int sig, siginfo_t *info, void *ctxt) {
 
     pid = fork();
     if ( pid < 0 ) {
-        msg = strerror(errno);
+        msg = "fork error\n";
         write(STDERR_FILENO, msg, strlen(msg));
         std::_Exit(EXIT_FAILURE);
     }
@@ -148,7 +147,7 @@ void SignalManager::catchSignal(int sig, siginfo_t *info, void *ctxt) {
                "set auto-load safe-path /", "-ex", "bt", "-p", pid_buf, nullptr);
     } else {
         if ( waitpid(pid, nullptr, 0) < 0 ) {
-            msg = strerror(errno);
+            msg = "waitpid error\n";
             write(STDERR_FILENO, msg, strlen(msg));
             std::_Exit(EXIT_FAILURE);
         }

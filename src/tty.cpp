@@ -411,7 +411,7 @@ void Tty::restoreOrigTerminal() {
 
 void Tty::restoreOrigTerminal_s() {
     if ( tcsetattr(term_stdin_, TCSANOW, &orig_term_) == -1 ) {
-        const char* msg = strerror(errno);
+        const char* msg = "tcsetattr error in restoreOrigTerminal_s()";
         write(STDERR_FILENO, msg, strlen(msg));
         std::_Exit(EXIT_FAILURE);
     }
