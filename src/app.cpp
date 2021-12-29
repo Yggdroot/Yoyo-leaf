@@ -119,28 +119,10 @@ void SignalManager::catchSignal(int sig, siginfo_t *info, void *ctxt) {
         }
 
         free(stacktrace);
-    } else {
-        if ( waitpid(pid, nullptr, 0) < 0 ) {
-            msg = "waitpid error\n";
-            write(STDERR_FILENO, msg, strlen(msg));
-            std::_Exit(EXIT_FAILURE);
-        }
-    }
 
-    pid = fork();
-    if ( pid < 0 ) {
-        msg = "fork error\n";
-        write(STDERR_FILENO, msg, strlen(msg));
-        std::_Exit(EXIT_FAILURE);
-    }
-    else if ( pid == 0 ) {
         header = "\n******************** gdb Backtrace ********************\n\n";
         write(STDERR_FILENO, header, strlen(header));
 
-        if ( dup2(STDERR_FILENO, STDOUT_FILENO) < 0 ) {
-            perror("dup2()");
-            std::_Exit(EXIT_FAILURE);
-        }
         char pid_buf[24];
         sprintf(pid_buf, "%d", getppid());
         execlp("gdb", "gdb", "--batch", "-n", "-iex",
