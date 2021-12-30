@@ -74,7 +74,7 @@ void ArgumentParser::printHelp() {
         help += "]";
     }
 
-    help += "\r\n";
+    help += "\n";
 
     for ( auto& group : arg_groups ) {
         bool header = false;
@@ -82,7 +82,7 @@ void ArgumentParser::printHelp() {
             auto& arg = *g.second;
             if ( header == false ) {
                 header = true;
-                help += "\r\n  " + category_name_[arg.category] + "\r\n";
+                help += "\n  " + category_name_[arg.category] + "\n";
             }
 
             std::string arg_name = g.first;
@@ -109,7 +109,7 @@ void ArgumentParser::printHelp() {
                     end = start + width;
                 }
 
-                help += arg.help.substr(start, end - start) + "\r\n";
+                help += arg.help.substr(start, end - start) + "\n";
 
                 start = end;
                 while ( start < arg.help.length() && (arg.help[start] == ' ' || arg.help[start] == '\t') ) {
@@ -122,12 +122,12 @@ void ArgumentParser::printHelp() {
                 if ( start > 0 ) {
                     help += std::string(name_column.length(), ' ');
                 }
-                help += arg.help.substr(start) + "\r\n";
+                help += arg.help.substr(start) + "\n";
             }
         }
     }
 
-    printf("%s\r\nalias: leaf\r\n", help.c_str());
+    printf("%s\nalias: leaf\n", help.c_str());
 }
 
 void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_ptr<ConfigBase>>& cfg) {
@@ -151,13 +151,13 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
         if ( iter == args_.end() ) {
             auto it = alias_.find(key);
             if ( it == alias_.end() ) {
-                printf("unknown option: %s\r\n", key.c_str());
+                printf("unknown option: %s\n", key.c_str());
                 std::exit(EXIT_FAILURE);
             }
             else {
                 iter = args_.find(it->second);
                 if ( iter == args_.end() ) {
-                    printf("unknown option: %s\r\n", key.c_str());
+                    printf("unknown option: %s\n", key.c_str());
                     std::exit(EXIT_FAILURE);
                 }
             }
@@ -166,11 +166,11 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
         auto& argument = iter->second;
         if ( eq != nullptr ) {
             if ( argument.nargs == "0" ) {
-                printf("unknown option: %s\r\n", argv[i]);
+                printf("unknown option: %s\n", argv[i]);
                 std::exit(EXIT_FAILURE);
             }
             else if ( val_list[0].empty() ) {
-                printf("no value specified for: %s\r\n", argv[i]);
+                printf("no value specified for: %s\n", argv[i]);
                 std::exit(EXIT_FAILURE);
             }
         }
@@ -188,7 +188,7 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                 i = j - 1;
 
                 if ( argument.nargs == "+" && val_list.empty() ) {
-                    printf("no value specified for: %s\r\n", key.c_str());
+                    printf("no value specified for: %s\n", key.c_str());
                     std::exit(EXIT_FAILURE);
                 }
             }
@@ -213,7 +213,7 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                 i = j - 1;
 
                 if ( val_list.size() < n ) {
-                    printf("not enough value specified for: %s\r\n", key.c_str());
+                    printf("not enough value specified for: %s\n", key.c_str());
                     std::exit(EXIT_FAILURE);
                 }
             }
@@ -236,7 +236,7 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                     value = win_height * stoi(val_list[0].substr(0, len - 1)) / 100;
                 }
                 catch(...) {
-                    printf("invalid value: %s\r\n", val_list[0].c_str());
+                    printf("invalid value: %s\n", val_list[0].c_str());
                     std::exit(EXIT_FAILURE);
                 }
             }
@@ -245,7 +245,7 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                     value = stoi(val_list[0]);
                 }
                 catch(...) {
-                    printf("invalid value: %s\r\n", val_list[0].c_str());
+                    printf("invalid value: %s\n", val_list[0].c_str());
                     std::exit(EXIT_FAILURE);
                 }
             }
@@ -262,7 +262,7 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                 SetConfigValue(cfg, SortPreference, Preference::End);
             }
             else {
-                printf("invalid value: %s for %s\r\n", val_list[0].c_str(), key.c_str());
+                printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
                 std::exit(EXIT_FAILURE);
             }
             break;
