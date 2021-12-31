@@ -468,7 +468,6 @@ public:
 
     template<typename InputIterator>
     void push_back(InputIterator first, InputIterator last) {
-        using namespace std;
         if ( first == last ) {
             return;
         }

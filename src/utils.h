@@ -2,7 +2,6 @@ _Pragma("once");
 
 #include <cstdio>
 #include <cstdint>
-#include <array>
 #include <string>
 
 namespace utils

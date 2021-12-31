@@ -3,7 +3,6 @@ _Pragma("once");
 #include <mutex>
 #include <condition_variable>
 #include <deque>
-#include <vector>
 
 namespace leaf
 {

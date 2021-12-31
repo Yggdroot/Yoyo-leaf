@@ -4,8 +4,7 @@ _Pragma("once");
 #include <string>
 #include <vector>
 #include <mutex>
-#include <errno.h>
-#include <stdio.h>
+#include <cstdio>
 #include "singleton.h"
 
 

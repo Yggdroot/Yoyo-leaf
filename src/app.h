@@ -138,6 +138,7 @@ class Configuration : private SignalManager
 {
 public:
     Configuration(int argc, char* argv[]) {
+        Error::getInstance(); // make sure Error object instance is created before Cleanup object instance
         ConfigManager::getInstance().loadConfig(argc, argv);
     }
 };
