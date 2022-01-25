@@ -71,16 +71,34 @@ public:
         }
     }
 
-    /**
-     * top, right, bottom, left, topleft, topright, botright, botleft corner
-     *  Example: ['-', '|', '-', '|', '┌', '┐', '┘', '└']
-     */
-    void setBorder(const std::array<std::string, 8>& border) {
-        p_border_.reset(new std::array<std::string, 8>(border));
-        core_height_ -= 2;
-        core_width_ -= 2; // maybe not 2
-        core_top_left_.line += 1;
-        core_top_left_.col += 1;
+    void setBorder() {
+        auto& border = ConfigManager::getInstance().getConfigValue<ConfigType::Border>();
+        if ( border.empty() ) {
+            return;
+        }
+
+        if ( border.find("T") != std::string::npos ) {
+            border_mask_ |= 0b0001;
+            core_height_ -= 1;
+            core_top_left_.line += 1;
+        }
+
+        auto border_char_width = ConfigManager::getInstance().getBorderCharWidth();
+        if ( border.find("R") != std::string::npos ) {
+            border_mask_ |= 0b0010;
+            core_width_ -= border_char_width;
+        }
+
+        if ( border.find("B") != std::string::npos ) {
+            border_mask_ |= 0b0100;
+            core_height_ -= 1;
+        }
+
+        if ( border.find("L") != std::string::npos ) {
+            border_mask_ |= 0b1000;
+            core_width_ -= border_char_width;
+            core_top_left_.col += border_char_width;
+        }
     }
 
     void setBuffer(Generator&& generator);
@@ -88,10 +106,6 @@ public:
 
     const std::vector<HighlightString>& getBuffer() const noexcept {
         return buffer_;
-    }
-
-    virtual void display() const {
-
     }
 
     void scrollUp() {
@@ -175,6 +189,7 @@ public:
             _updateCursorline(first_line_ + yx.line - core_top_left_.line);
         }
     }
+
 protected:
     void _render(uint32_t orig_cursorline_y);
 
@@ -201,13 +216,13 @@ protected:
     uint32_t core_height_;
     uint32_t core_width_;
     std::unique_ptr<std::array<uint32_t, 4>> p_margin_;
-    std::unique_ptr<std::array<std::string, 8>> p_border_;
     std::vector<HighlightString> buffer_;
     Generator generator_;
     bool     is_reverse_{ ConfigManager::getInstance().getConfigValue<ConfigType::Reverse>() };
     uint32_t cursor_line_{ 0 }; // index of string under cursor line
     uint32_t first_line_{ 0 };  // index of string at the top of window
     uint32_t last_line_{ 0 };
+    uint32_t border_mask_{ 0 };
     uint32_t indent_{ ConfigManager::getInstance().getConfigValue<ConfigType::Indentation>() };
     const Colorscheme& cs_;
 };
@@ -224,7 +239,8 @@ public:
         _setCmdline();
     }
 
-    virtual void display() const override {
+    void display() const {
+        drawBorder();
         _displayCmdline();
     }
 
@@ -239,17 +255,22 @@ public:
     }
 
     void showFlag(bool show) {
+        auto flag_col = flag_col_.load(std::memory_order_relaxed);
+        if ( flag_col >= core_top_left_.col + core_width_ ) {
+            return;
+        }
+
         const std::string flag[] = { "◐", "◒", "◑", "◓" };
         if ( show ) {
             static uint32_t idx = 0;
             Tty::getInstance().addString(line_info_.line,
-                                         flag_col_.load(std::memory_order_relaxed),
+                                         flag_col,
                                          flag[(idx++) & 3],
                                          cs_.getColor(HighlightGroup::Flag));
         }
         else {
             Tty::getInstance().addString(line_info_.line,
-                                         flag_col_.load(std::memory_order_relaxed),
+                                         flag_col,
                                          std::string(2, ' '),
                                          cs_.getColor(HighlightGroup::Normal));
             Tty::getInstance().restoreCursorPosition();
@@ -269,6 +290,8 @@ public:
         Tty::getInstance().restoreCursorPosition();
     }
 
+    void drawBorder() const;
+
 private:
 
     void _setCmdline();
@@ -280,12 +303,12 @@ private:
     }
 
     void _drawIndicator(uint32_t cursor_line_y) override {
-        Tty::getInstance().addString(cursor_line_y, 1, indicator_,
+        Tty::getInstance().addString(cursor_line_y, core_top_left_.col, indicator_,
                                      cs_.getColor(HighlightGroup::Indicator));
     }
 
     void _clearIndicator(uint32_t cursor_line_y) override {
-        Tty::getInstance().addString(cursor_line_y, 1, std::string(indent_, ' '),
+        Tty::getInstance().addString(cursor_line_y, core_top_left_.col, std::string(indent_, ' '),
                                      cs_.getColor(HighlightGroup::Normal));
     }
 private:
@@ -297,7 +320,7 @@ private:
     uint32_t result_size_{ 0 };
     uint32_t total_size_{ 0 };
     uint32_t cursor_pos_{ 0 };
-    static constexpr uint32_t right_boundary{ 50 };
+    static constexpr uint32_t right_boundary_{ 50 };
 
     std::atomic<uint32_t> flag_col_{ 1 };
     std::atomic<bool> show_flag_{ true };
@@ -325,13 +348,24 @@ public:
         orig_cursor_pos_ = orig_cursor_pos;
     }
 
-    void saveWindowHeight(uint32_t win_height) {
-        win_height_ = win_height;
+    void setTopBorder() {
+        top_border_ = true;
     }
+
+    void saveCoreHeight(uint32_t height) {
+        core_height_ = height;
+    }
+
+    void setFullScreen() {
+        is_full_screen_ = true;
+    }
+
 private:
-    bool done_{false};
+    bool done_{ false };
+    bool is_full_screen_{ false };
+    bool top_border_{ false };
     Point orig_cursor_pos_{ 0, 0 };
-    uint32_t win_height_{ 10000 };
+    uint32_t core_height_{ 1 };
 };
 
 class Tui final
@@ -481,6 +515,10 @@ public:
 
     void redrawPrompt(bool normal_mode) {
         p_main_win_->redrawPrompt(normal_mode);
+    }
+
+    void drawBorder() const {
+        p_main_win_->drawBorder();
     }
 
     void setAccept() {

@@ -37,6 +37,31 @@ ArgumentParser::ArgumentParser()
                 "Display window with the given height N[%] instead of using fullscreen."
             }
         },
+        { "--border",
+            {
+                ArgCategory::Layout,
+                "",
+                ConfigType::Border,
+                "?",
+                "BORDER[:STYLE]",
+                "Display the T(top), R(right), B(bottom), L(left) border. BORDER is a string "
+                "combined by 'T', 'R', 'B' or 'L'. If BORDER is not specified, display borders all around. "
+                "STYLE is 1, 2, 3 and 4 which denotes \"[─,│,─,│,╭,╮,╯,╰]\", \"[─,│,─,│,┌,┐,┘,└]\", "
+                "\"[━,┃,━,┃,┏,┓,┛,┗]\", \"[═,║,═,║,╔,╗,╝,╚]\" respectively."
+            }
+        },
+        { "--border-chars",
+            {
+                ArgCategory::Layout,
+                "",
+                ConfigType::BorderChars,
+                "1",
+                "CHARS",
+                "Specify the character to use for the top/right/bottom/left border, "
+                "followed by the character to use for the topleft/topright/botright/botleft corner. "
+                "Default value is \"[─,│,─,│,╭,╮,╯,╰]\""
+            }
+        },
         { "--sort-preference",
             {
                 ArgCategory::Search,
@@ -53,29 +78,16 @@ ArgumentParser::ArgumentParser()
 }
 
 void ArgumentParser::printHelp() {
-    std::string help("usage: yy [-h]");
+    std::string help("usage: yy [options]\n");
     help.reserve(1024);
     std::vector<std::map<std::string, const Argument*>> arg_groups(static_cast<uint32_t>(ArgCategory::MaxNum));
 
     for ( auto& arg : args_ ) {
         auto category = static_cast<uint32_t>(arg.second.category);
         arg_groups[category].emplace(arg.first, &arg.second);
-
-        help += " [";
-        if ( !arg.second.alias.empty() ) {
-            help += arg.second.alias;
-        }
-        else {
-            help += arg.first;
-        }
-        if ( !arg.second.metavar.empty() ) {
-            help += "=" + arg.second.metavar;
-        }
-        help += "]";
     }
 
-    help += "\n";
-
+    uint32_t name_column_width = 32;
     for ( auto& group : arg_groups ) {
         bool header = false;
         for ( auto& g : group ) {
@@ -90,15 +102,31 @@ void ArgumentParser::printHelp() {
                 arg_name = arg.alias + ", " + arg_name;
             }
 
-            auto name_column = utils::strFormat<32>("%4c%-20s", ' ', arg_name.c_str());
-            help += name_column;
+            if ( arg.nargs == "1" ) {
+                arg_name += "=<" + arg.metavar + ">";
+            }
+            else if ( arg.nargs == "?" ) {
+                arg_name += " [" + arg.metavar + "]";
+            }
+            else if ( arg.nargs == "*" ) {
+                arg_name += " [" + arg.metavar + "]...";
+            }
+            else if ( arg.nargs == "+" ) {
+                arg_name += " <" + arg.metavar + ">...";
+            }
 
-            uint32_t width = 56;
+            auto name_column = utils::strFormat<64>("%4c%-28s", ' ', arg_name.c_str());
+            help += name_column;
+            if ( name_column.length() >= name_column_width ) {
+                help += "\n" + std::string(name_column_width, ' ');
+            }
+
+            uint32_t width = 64;
             uint32_t start = 0;
             uint32_t end = start + width;
             while ( end < arg.help.length() ) {
                 if ( start > 0 ) {
-                    help += std::string(name_column.length(), ' ');
+                    help += std::string(name_column_width, ' ');
                 }
 
                 while ( end > start && arg.help[end] != ' ' && arg.help[end] != '\t' ) {
@@ -120,7 +148,7 @@ void ArgumentParser::printHelp() {
 
             if ( start < arg.help.length() ) {
                 if ( start > 0 ) {
-                    help += std::string(name_column.length(), ' ');
+                    help += std::string(name_column_width, ' ');
                 }
                 help += arg.help.substr(start) + "\n";
             }
@@ -254,7 +282,6 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
             break;
         }
         case ConfigType::SortPreference:
-        {
             if ( val_list[0] == "begin" ) {
                 SetConfigValue(cfg, SortPreference, Preference::Begin);
             }
@@ -265,6 +292,89 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                 printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
                 std::exit(EXIT_FAILURE);
             }
+            break;
+        case ConfigType::Border:
+            if ( !val_list.empty() ) {
+                auto pos = val_list[0].find(':');
+                auto val = val_list[0].substr(0, pos);
+                if ( val.empty() ) {
+                    SetConfigValue(cfg, Border, "TRBL");
+                }
+                else {
+                    for ( auto c : val ) {
+                        if ( c != 'T' && c != 'R' && c != 'B' && c != 'L' ) {
+                            printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
+                            std::exit(EXIT_FAILURE);
+                        }
+                    }
+
+                    SetConfigValue(cfg, Border, val);
+                }
+
+                if ( pos != std::string::npos ) {
+                    auto style = val_list[0].substr(pos + 1);
+                    if ( style.empty() || style == "1" ) {
+                    }
+                    else if ( style == "2" ) {
+                        SetConfigValue(cfg, BorderChars,
+                                       std::vector<std::string>({"─","│","─","│","┌","┐","┘","└"}));
+                    }
+                    else if ( style == "3" ) {
+                        SetConfigValue(cfg, BorderChars,
+                                       std::vector<std::string>({"━","┃","━","┃","┏","┓","┛","┗"}));
+                    }
+                    else if ( style == "4" ) {
+                        SetConfigValue(cfg, BorderChars,
+                                       std::vector<std::string>({"═","║","═","║","╔","╗","╝","╚"}));
+                    }
+                    else {
+                        printf("invalid style: %s for %s\n", style.c_str(), key.c_str());
+                        std::exit(EXIT_FAILURE);
+                    }
+                }
+            }
+            else {
+                SetConfigValue(cfg, Border, "TRBL");
+            }
+            break;
+        case ConfigType::BorderChars:
+        {
+            auto left = val_list[0].find('[');
+            auto right = val_list[0].find(']');
+            if ( left == std::string::npos || right == std::string::npos ) {
+                printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
+                std::exit(EXIT_FAILURE);
+            }
+            std::vector<std::string> border_chars;
+            for ( auto k = left + 1; k < right; ++k ) {
+                while ( val_list[0][k] == ' ' ) {
+                    ++k;
+                }
+                auto start = k;
+                while ( k < right && val_list[0][k] != ' ' && val_list[0][k] != ',' ) {
+                    ++k;
+                }
+                if ( k == start || (k - start > 1 && (val_list[0][start] & 0x80) == 0 ) ) {
+                    printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
+                    std::exit(EXIT_FAILURE);
+                }
+                border_chars.emplace_back(val_list[0].substr(start, k - start));
+                while ( val_list[0][k] == ' ' ) {
+                    ++k;
+                }
+
+                if ( k < right && val_list[0][k] != ',' ) {
+                    printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
+                    std::exit(EXIT_FAILURE);
+                }
+            }
+
+            if ( border_chars.size() != 8 ) {
+                printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
+                std::exit(EXIT_FAILURE);
+            }
+
+            SetConfigValue(cfg, BorderChars, std::move(border_chars));
             break;
         }
         default:

@@ -40,6 +40,7 @@ enum class HighlightGroup
     LineInfo,
     Flag,
     NormalMode,
+    Border,
 
     MaxGroupNum
 };
@@ -320,8 +321,9 @@ public:
         colors_[static_cast<uint32_t>(HighlightGroup::Indicator)].setColor(Color256("5", "", Attribute::Bold));
         colors_[static_cast<uint32_t>(HighlightGroup::Match0)].setColor(Color256("155", "", Attribute::Bold));
         colors_[static_cast<uint32_t>(HighlightGroup::LineInfo)].setColor(Color256("254", "59"));
-        colors_[static_cast<uint32_t>(HighlightGroup::Flag)].setColor(Color256("87", ""));
+        colors_[static_cast<uint32_t>(HighlightGroup::Flag)].setColor(Color256("218", ""));
         colors_[static_cast<uint32_t>(HighlightGroup::NormalMode)].setColor(Color256("1", "", Attribute::Reverse));
+        colors_[static_cast<uint32_t>(HighlightGroup::Border)].setColor(Color256("246", ""));
         //colors_[static_cast<uint32_t>(HighlightGroup::Normal)].setColor(Color256("", "", Attribute::Normal, ColorPriority::High));
     }
 

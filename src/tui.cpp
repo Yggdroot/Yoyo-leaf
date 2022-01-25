@@ -21,8 +21,7 @@ void Window::_init(const Point& tl, const Point& br) {
     core_width_ = width_;
     //if margin
     //    setMargin
-    //if border
-    //    setBorder
+    setBorder();
     if ( is_reverse_ ) {
         core_top_left_.line += core_height_ - 1;
     }
@@ -252,19 +251,29 @@ void MainWindow::updateLineInfo(uint32_t result_size, uint32_t total_size) {
     auto& tty = Tty::getInstance();
     if ( line_info_.line == cmdline_y_ ) {
         if ( line_info_.col == 0 ) {
-            line_info_.col = right_boundary;
+            line_info_.col = right_boundary_;
         }
-        tty.addString(line_info_.line, line_info_.col - info.length() + 1, info,
-                      cs_.getColor(HighlightGroup::LineInfo));
-        tty.addString(line_info_.line, line_info_.col - info_len + 1,
-                      std::string(info_len - info.length(), ' '));
+        int32_t info_visual_len = core_top_left_.col + core_width_ - (line_info_.col - info.length() + 1);
+        if ( info_visual_len > 0 ) {
+            tty.addString(line_info_.line, line_info_.col - info.length() + 1,
+                          info.substr(0, info_visual_len),
+                          cs_.getColor(HighlightGroup::LineInfo));
+        }
+
+        int32_t visual_len = core_top_left_.col + core_width_ - (line_info_.col - info_len + 1);
+        if ( visual_len > 0 ) {
+            tty.addString(line_info_.line, line_info_.col - info_len + 1,
+                          std::string(info_len - info.length(), ' ').substr(0, visual_len));
+        }
 
         uint32_t flag_len = 0;
         if ( show_flag_.load(std::memory_order_relaxed) ) {
             flag_len = 3;
-            tty.addString(line_info_.line, line_info_.col + 1, " ");
+            if ( line_info_.col + 1 < core_top_left_.col + core_width_ ) {
+                tty.addString(line_info_.line, line_info_.col + 1, " ");
+            }
         }
-        int32_t space_len = core_width_ - line_info_.col - flag_len;
+        int32_t space_len = core_top_left_.col + core_width_ - (line_info_.col + flag_len + 1);
         if ( space_len > 0 ) {
             tty.addString(line_info_.line, line_info_.col + flag_len + 1, std::string(space_len, ' '));
         }
@@ -284,18 +293,20 @@ void MainWindow::updateLineInfo(uint32_t result_size, uint32_t total_size) {
 void MainWindow::updateCmdline(const std::string& pattern, uint32_t cursor_pos) {
     cursor_pos_ = cursor_pos;
     auto& tty = Tty::getInstance();
+
     if ( line_info_.line == cmdline_y_ ) {
         auto total = std::to_string(total_size_);
         auto info_len = total.length() * 2 + 1;
         auto info = std::to_string(result_size_) + "/" + total;
         auto first_len = prompt_.length() + pattern.length() + 2;
         std::string spaces;
-        if ( first_len + info_len < right_boundary ) {
-            line_info_.col = right_boundary;
-            spaces = std::string(right_boundary - (first_len - 2) - info.length(), ' ');
+        auto border_char_width = core_top_left_.col - 1;
+        if ( border_char_width + first_len + info_len < right_boundary_ ) {
+            line_info_.col = right_boundary_;
+            spaces = std::string(right_boundary_ - (first_len - 2) - info.length() - border_char_width, ' ');
         }
         else {
-            line_info_.col = top_left_.col + first_len + info_len - 1;
+            line_info_.col = core_top_left_.col + first_len + info_len - 1;
             spaces = std::string(info_len - info.length() + 2, ' ');
         }
 
@@ -303,17 +314,27 @@ void MainWindow::updateCmdline(const std::string& pattern, uint32_t cursor_pos) 
         if ( show_flag_.load(std::memory_order_relaxed) ) {
             flag_col_.store(line_info_.col + 2, std::memory_order_relaxed);
             flag_len = 3;
-            tty.addString(line_info_.line, line_info_.col + 1, " ");
+            if ( line_info_.col + 1 < core_top_left_.col + core_width_ ) {
+                tty.addString(line_info_.line, line_info_.col + 1, " ");
+            }
         }
 
-        tty.addString(line_info_.line, line_info_.col - info.length() + 1, info,
-                      cs_.getColor(HighlightGroup::LineInfo));
-        int32_t space_len = core_width_ - line_info_.col - flag_len;
+        int32_t info_visual_len = core_top_left_.col + core_width_ - (line_info_.col - info.length() + 1);
+        if ( info_visual_len > 0 ) {
+            tty.addString(line_info_.line, line_info_.col - info.length() + 1,
+                          info.substr(0, info_visual_len),
+                          cs_.getColor(HighlightGroup::LineInfo));
+        }
+        int32_t space_len = core_top_left_.col + core_width_ - (line_info_.col + flag_len + 1);
         if ( space_len > 0 ) {
             tty.addString(line_info_.line, line_info_.col + flag_len + 1, std::string(space_len, ' '));
         }
-        tty.addString(cmdline_y_, core_top_left_.col + prompt_.length(), pattern + spaces);
-        tty.addStringAndSave(cmdline_y_, core_top_left_.col + prompt_.length(), pattern.substr(0, cursor_pos));
+
+        int32_t visual_len = core_width_ - prompt_.length();
+        tty.addString(cmdline_y_, core_top_left_.col + prompt_.length(),
+                      (pattern + spaces).substr(0, visual_len));
+        tty.addStringAndSave(cmdline_y_, core_top_left_.col + prompt_.length(),
+                             pattern.substr(0, cursor_pos).substr(0, visual_len - 1));
     }
     else {
         uint32_t available_width = core_width_ - prompt_.length() - 1;
@@ -340,35 +361,122 @@ void MainWindow::updateCmdline(const std::string& pattern, uint32_t cursor_pos) 
         }
     }
     // if another thread restore cursor to previous position before saveCursorPosition,
-    // this line can make sure the cursor is at the correct position
+    // this line can ensure the cursor is at the correct position
     tty.restoreCursorPosition();
+}
+
+/**
+ * top, right, bottom, left, topleft, topright, botright, botleft corner
+ *  Example: ['─', '│', '─', '│', '╭', '╮', '╯', '╰']
+ *           ['─', '│', '─', '│', '┌', '┐', '┘', '└']
+ *           ['━', '┃', '━', '┃', '┏', '┓', '┛', '┗']
+ *           ['═', '║', '═', '║', '╔', '╗', '╝', '╚']
+ */
+void MainWindow::drawBorder() const {
+    auto& border = ConfigManager::getInstance().getConfigValue<ConfigType::Border>();
+    if ( border.empty() ) {
+        return;
+    }
+
+    auto& border_chars = ConfigManager::getInstance().getConfigValue<ConfigType::BorderChars>();
+    auto border_char_width = ConfigManager::getInstance().getBorderCharWidth();
+    uint32_t count = width_ / border_char_width;
+
+    // top
+    if ( (border_mask_ & 0b0001) == 0b0001 ) {
+        Cleanup::getInstance().setTopBorder();
+        std::string border_str;
+        border_str.reserve(border_chars[0].length() * count);
+        for ( uint32_t i = 0; i < count; ++i ) {
+            border_str.append(border_chars[0]);
+        }
+
+        Tty::getInstance().addString(top_left_.line, top_left_.col, border_str,
+                                     cs_.getColor(HighlightGroup::Border));
+    }
+
+    // right
+    if ( (border_mask_ & 0b0010) == 0b0010 ) {
+        for ( uint32_t i = 0; i < height_; ++i ) {
+            Tty::getInstance().addString(top_left_.line + i, bottom_right_.col - border_char_width + 1,
+                                         border_chars[1], cs_.getColor(HighlightGroup::Border));
+        }
+    }
+
+    // bottom
+    if ( (border_mask_ & 0b0100) == 0b0100 ) {
+        std::string border_str;
+        border_str.reserve(border_chars[2].length() * count);
+        for ( uint32_t i = 0; i < count; ++i ) {
+            border_str.append(border_chars[2]);
+        }
+
+        Tty::getInstance().addString(bottom_right_.line, top_left_.col, border_str,
+                                     cs_.getColor(HighlightGroup::Border));
+    }
+
+    // left
+    if ( (border_mask_ & 0b1000) == 0b1000 ) {
+        for ( uint32_t i = 0; i < height_; ++i ) {
+            Tty::getInstance().addString(top_left_.line + i, top_left_.col, border_chars[3],
+                                         cs_.getColor(HighlightGroup::Border));
+        }
+    }
+
+    // top left corner
+    if ( (border_mask_ & 0b1001) == 0b1001 ) {
+        Tty::getInstance().addString(top_left_.line, top_left_.col, border_chars[4],
+                                     cs_.getColor(HighlightGroup::Border));
+    }
+
+    // top right corner
+    if ( (border_mask_ & 0b0011) == 0b0011 ) {
+        Tty::getInstance().addString(top_left_.line, bottom_right_.col - border_char_width + 1,
+                                     border_chars[5], cs_.getColor(HighlightGroup::Border));
+    }
+
+    // bottom right corner
+    if ( (border_mask_ & 0b0110) == 0b0110 ) {
+        Tty::getInstance().addString(bottom_right_.line, bottom_right_.col - border_char_width + 1,
+                                     border_chars[6], cs_.getColor(HighlightGroup::Border));
+    }
+
+    // bottom left corner
+    if ( (border_mask_ & 0b1100) == 0b1100 ) {
+        Tty::getInstance().addString(bottom_right_.line, top_left_.col, border_chars[7],
+                                     cs_.getColor(HighlightGroup::Border));
+    }
 }
 
 void MainWindow::_setCmdline() {
     core_height_ -= 1;
     if ( is_reverse_ ) {
         cmdline_y_ = core_top_left_.line;
-        if ( core_width_ < right_boundary + 3 ) {
+        if ( core_width_ < right_boundary_ + 3 ) {
+            core_height_ -= 1;
             line_info_.line = cmdline_y_ - 1;
-            line_info_.col = 3;
+            line_info_.col = core_top_left_.col + 2;
+            flag_col_.store(core_top_left_.col, std::memory_order_relaxed);
         }
         else {
             line_info_.line = cmdline_y_;
             line_info_.col = 0;
-            flag_col_.store(right_boundary + 2, std::memory_order_relaxed);
+            flag_col_.store(right_boundary_ + 2, std::memory_order_relaxed);
         }
         core_top_left_.line = line_info_.line - 1;
     }
     else {
         cmdline_y_ = core_top_left_.line;
-        if ( core_width_ < right_boundary + 3) {
+        if ( core_width_ < right_boundary_ + 3 ) {
+            core_height_ -= 1;
             line_info_.line = cmdline_y_ + 1;
-            line_info_.col = 3;
+            line_info_.col = core_top_left_.col + 2;
+            flag_col_.store(core_top_left_.col, std::memory_order_relaxed);
         }
         else {
             line_info_.line = cmdline_y_;
             line_info_.col = 0;
-            flag_col_.store(right_boundary + 2, std::memory_order_relaxed);
+            flag_col_.store(right_boundary_ + 2, std::memory_order_relaxed);
         }
         core_top_left_.line = line_info_.line + 1;
     }
@@ -392,19 +500,31 @@ void Tui::init(bool resume) {
         tty_.getWindowSize2(win_height, win_width);
     }
 
-    Point top_left(1, 1);
-    Point bottom_right(win_height, win_width);
-
-    cleanup_.saveWindowHeight(win_height);
-
     uint32_t line = 0;
     uint32_t col = 0;
     if ( !resume ) {
         tty_.getCursorPosition(line, col);
+        auto& border = ConfigManager::getInstance().getConfigValue<ConfigType::Border>();
+        if ( !border.empty() ) {
+            auto& border_chars = ConfigManager::getInstance().getConfigValue<ConfigType::BorderChars>();
+            tty_.addString(line, col, border_chars[0]);
+            tty_.flush();
+            uint32_t new_line = 0;
+            uint32_t new_col = 0;
+            tty_.getCursorPosition(new_line, new_col);
+            uint32_t border_char_width = new_col - col;
+            win_width -= win_width % border_char_width;
+            ConfigManager::getInstance().setBorderCharWidth(border_char_width);
+            tty_.clear(EraseMode::ToLineBegin);
+        }
     }
     else {
         tty_.getCursorPosition2(line, col);
+        win_width -= win_width % ConfigManager::getInstance().getBorderCharWidth();
     }
+
+    Point top_left(1, 1);
+    Point bottom_right(win_height, win_width);
 
     auto height =  cfg_.getConfigValue<ConfigType::Height>();
     if ( height == 0 || height >= win_height ) {
@@ -412,13 +532,23 @@ void Tui::init(bool resume) {
         orig_cursor_pos.line = line;
         orig_cursor_pos.col = col;
         cleanup_.saveCursorPosition(orig_cursor_pos);
+        cleanup_.setFullScreen();
         tty_.enableAlternativeBuffer();
         tty_.enableMouse();
         tty_.disableAutoWrap();
         tty_.flush();
     }
     else {
-        height = std::max(height, 3u);  // minimum height is 3
+        uint32_t min_height = 3;  // minimum height is 3
+        auto& border = ConfigManager::getInstance().getConfigValue<ConfigType::Border>();
+        if ( border.find("T") != std::string::npos ) {
+            ++min_height;
+        }
+        if ( border.find("B") != std::string::npos ) {
+            ++min_height;
+        }
+
+        height = std::max(height, min_height);
         tty_.enableMouse();
         tty_.disableAutoWrap();
         if ( win_height - line < height ) {
@@ -439,6 +569,7 @@ void Tui::init(bool resume) {
 
     if ( !resume ) {
         setMainWindow(top_left, bottom_right, cs_);
+        cleanup_.saveCoreHeight(p_main_win_->getCoreHeight());
         p_main_win_->display();
     }
     else {
@@ -472,17 +603,18 @@ void Cleanup::doWork(bool once) {
     tty.enableAutoWrap();
     tty.disableMouse();
     tty.showCursor();
-    auto height =  cfg.getConfigValue<ConfigType::Height>();
-    if ( height == 0 || height >= win_height_ ) {
+    if ( is_full_screen_ ) {
         tty.clear(EraseMode::EntireScreen);
         tty.disableAlternativeBuffer();
         tty.moveCursorTo(orig_cursor_pos_.line, orig_cursor_pos_.col);
         tty.flush();
     }
     else {
-        height = std::max(height, 3u);  // minimum height is 3
         if ( cfg.getConfigValue<ConfigType::Reverse>() ) {
-            tty.moveCursor(CursorDirection::Up, height - 1);
+            tty.moveCursor(CursorDirection::Up, core_height_);
+        }
+        if ( top_border_ ) {
+            tty.moveCursor(CursorDirection::Up, 1);
         }
         tty.moveCursor(CursorDirection::Left, 1024);   // move to column 1
         tty.clear(EraseMode::ToScreenEnd);

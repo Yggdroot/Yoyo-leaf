@@ -25,6 +25,16 @@ public:
         readConfig(cfg_);
         parseArgs(argc, argv, cfg_);
     }
+
+
+    void setBorderCharWidth(uint32_t width) {
+        border_char_width_ = width;
+    }
+
+    uint32_t getBorderCharWidth() const noexcept {
+        return border_char_width_;
+    }
+
 private:
 
     ConfigManager() {
@@ -33,9 +43,12 @@ private:
         SetConfigValue(cfg_, Height, 0);
         SetConfigValue(cfg_, Indentation, 2);
         SetConfigValue(cfg_, SortPreference, Preference::End);
+        SetConfigValue(cfg_, Border, "");
+        SetConfigValue(cfg_, BorderChars, std::vector<std::string>({"─","│","─","│","╭","╮","╯","╰"}));
     }
 
     std::vector<std::unique_ptr<ConfigBase>> cfg_;
+    uint32_t border_char_width_{ 1 };
 
 };
 

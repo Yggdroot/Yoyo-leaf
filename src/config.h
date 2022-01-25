@@ -1,6 +1,7 @@
 _Pragma("once");
 
 #include <string>
+#include <vector>
 #include <cstdint>
 #include <utility>
 #include <type_traits>
@@ -14,6 +15,8 @@ enum class ConfigType
     Height,
     Indentation,
     SortPreference,
+    Border,
+    BorderChars,
 
     MaxConfigNum
 };
@@ -38,10 +41,12 @@ struct ConfigValueType {
 DefineConfigValue(Height, uint32_t)
 DefineConfigValue(Indentation, uint32_t)
 DefineConfigValue(SortPreference, Preference)
+DefineConfigValue(Border, std::string)
+DefineConfigValue(BorderChars, std::vector<std::string>)
 
 #define SetConfigValue(container, cfg_type, value)                  \
     container[static_cast<uint32_t>(ConfigType::cfg_type)].reset(   \
-        new Config<typename ConfigValueType<ConfigType::cfg_type>::type>(value));
+        new Config<typename ConfigValueType<ConfigType::cfg_type>::type>(value))
 
 class ConfigBase
 {
