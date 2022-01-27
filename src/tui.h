@@ -58,19 +58,6 @@ public:
         return core_width_;
     }
 
-    // top, right, bottom, left
-    void setMargin(const std::array<uint32_t, 4>& margin) {
-        p_margin_.reset(new std::array<uint32_t, 4>(margin));
-        if ( core_height_ > (*p_margin_)[0] + (*p_margin_)[2] ) {
-            core_top_left_.line += (*p_margin_)[0];
-            core_height_ -= (*p_margin_)[0] + (*p_margin_)[2];
-        }
-        if ( core_width_ > (*p_margin_)[1] + (*p_margin_)[3] ) {
-            core_top_left_.col += (*p_margin_)[3];
-            core_width_ -= (*p_margin_)[1] + (*p_margin_)[3];
-        }
-    }
-
     void setBorder() {
         auto& border = ConfigManager::getInstance().getConfigValue<ConfigType::Border>();
         if ( border.empty() ) {
@@ -215,7 +202,6 @@ protected:
     uint32_t width_;
     uint32_t core_height_;
     uint32_t core_width_;
-    std::unique_ptr<std::array<uint32_t, 4>> p_margin_;
     std::vector<HighlightString> buffer_;
     Generator generator_;
     bool     is_reverse_{ ConfigManager::getInstance().getConfigValue<ConfigType::Reverse>() };
@@ -375,6 +361,8 @@ public:
     ~Tui();
 
     void init(bool resume);
+
+    void setMargin(Point& tl, Point& br, uint32_t height);
 
     template<typename... Args>
     void setMainWindow(Args&&... args) {

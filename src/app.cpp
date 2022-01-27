@@ -891,6 +891,7 @@ void Application::_shorten(const std::string& pattern, uint32_t cursor_pos) {
         });
         task_queue_.put([this] {
             index_ = 0;
+            pattern_.clear();
             ui_queue_.put([this]{ _initBuffer(); });
         });
     }

@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include "argParser.h"
 #include "tty.h"
-#include "utils.h"
 
 
 namespace leaf
@@ -62,6 +61,18 @@ ArgumentParser::ArgumentParser()
                 "Default value is \"[─,│,─,│,╭,╮,╯,╰]\""
             }
         },
+        { "--margin",
+            {
+                ArgCategory::Layout,
+                "",
+                ConfigType::Margin,
+                "1",
+                "MARGIN",
+                "Specify the width of the top/right/bottom/left margin. MARGIN is a list of integers or percentages. "
+                "The list can have 1, 2 and 4 elements. For example, [10]: margins all around are 10. "
+                "[10,20%]: top and bottom margin are 10, left and right margin are 20% of the terminal width."
+        }
+        },
         { "--sort-preference",
             {
                 ArgCategory::Search,
@@ -117,7 +128,8 @@ void ArgumentParser::printHelp() {
 
             auto name_column = utils::strFormat<64>("%4c%-28s", ' ', arg_name.c_str());
             help += name_column;
-            if ( name_column.length() >= name_column_width ) {
+            if ( name_column.length() > name_column_width
+                 || name_column[name_column_width-1] != ' ' ) {
                 help += "\n" + std::string(name_column_width, ' ');
             }
 
@@ -179,13 +191,13 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
         if ( iter == args_.end() ) {
             auto it = alias_.find(key);
             if ( it == alias_.end() ) {
-                printf("unknown option: %s\n", key.c_str());
+                appendError("unknown option: %s", key.c_str());
                 std::exit(EXIT_FAILURE);
             }
             else {
                 iter = args_.find(it->second);
                 if ( iter == args_.end() ) {
-                    printf("unknown option: %s\n", key.c_str());
+                    appendError("unknown option: %s", key.c_str());
                     std::exit(EXIT_FAILURE);
                 }
             }
@@ -194,11 +206,11 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
         auto& argument = iter->second;
         if ( eq != nullptr ) {
             if ( argument.nargs == "0" ) {
-                printf("unknown option: %s\n", argv[i]);
+                appendError("unknown option: %s", argv[i]);
                 std::exit(EXIT_FAILURE);
             }
             else if ( val_list[0].empty() ) {
-                printf("no value specified for: %s\n", argv[i]);
+                appendError("no value specified for: %s", argv[i]);
                 std::exit(EXIT_FAILURE);
             }
         }
@@ -216,7 +228,7 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                 i = j - 1;
 
                 if ( argument.nargs == "+" && val_list.empty() ) {
-                    printf("no value specified for: %s\n", key.c_str());
+                    appendError("no value specified for: %s", key.c_str());
                     std::exit(EXIT_FAILURE);
                 }
             }
@@ -228,7 +240,7 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                 }
             }
             else {
-                uint32_t n = stoi(argument.nargs);
+                uint32_t n = std::stoi(argument.nargs);
                 int j = i + 1;
                 for ( ; j < argc && j <= static_cast<int>(i + n); ++j ) {
                     if ( argv[j][0] != '-' ) {
@@ -241,7 +253,7 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                 i = j - 1;
 
                 if ( val_list.size() < n ) {
-                    printf("not enough value specified for: %s\n", key.c_str());
+                    appendError("not enough value specified for: %s", key.c_str());
                     std::exit(EXIT_FAILURE);
                 }
             }
@@ -261,19 +273,19 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                 uint32_t win_width = 0;
                 Tty::getInstance().getWindowSize(win_height, win_width);
                 try {
-                    value = win_height * stoi(val_list[0].substr(0, len - 1)) / 100;
+                    value = win_height * std::stoi(val_list[0].substr(0, len - 1)) / 100;
                 }
                 catch(...) {
-                    printf("invalid value: %s\n", val_list[0].c_str());
+                    appendError("invalid value: %s", val_list[0].c_str());
                     std::exit(EXIT_FAILURE);
                 }
             }
             else {
                 try {
-                    value = stoi(val_list[0]);
+                    value = std::stoi(val_list[0]);
                 }
                 catch(...) {
-                    printf("invalid value: %s\n", val_list[0].c_str());
+                    appendError("invalid value: %s", val_list[0].c_str());
                     std::exit(EXIT_FAILURE);
                 }
             }
@@ -289,7 +301,7 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                 SetConfigValue(cfg, SortPreference, Preference::End);
             }
             else {
-                printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
+                appendError("invalid value: %s for %s", val_list[0].c_str(), key.c_str());
                 std::exit(EXIT_FAILURE);
             }
             break;
@@ -303,7 +315,7 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                 else {
                     for ( auto c : val ) {
                         if ( c != 'T' && c != 'R' && c != 'B' && c != 'L' ) {
-                            printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
+                            appendError("invalid value: %s for %s", val_list[0].c_str(), key.c_str());
                             std::exit(EXIT_FAILURE);
                         }
                     }
@@ -328,7 +340,7 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
                                        std::vector<std::string>({"═","║","═","║","╔","╗","╝","╚"}));
                     }
                     else {
-                        printf("invalid style: %s for %s\n", style.c_str(), key.c_str());
+                        appendError("invalid style: %s for %s", style.c_str(), key.c_str());
                         std::exit(EXIT_FAILURE);
                     }
                 }
@@ -339,42 +351,64 @@ void ArgumentParser::parseArgs(int argc, char* argv[], std::vector<std::unique_p
             break;
         case ConfigType::BorderChars:
         {
-            auto left = val_list[0].find('[');
-            auto right = val_list[0].find(']');
-            if ( left == std::string::npos || right == std::string::npos ) {
-                printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
-                std::exit(EXIT_FAILURE);
-            }
-            std::vector<std::string> border_chars;
-            for ( auto k = left + 1; k < right; ++k ) {
-                while ( val_list[0][k] == ' ' ) {
-                    ++k;
-                }
-                auto start = k;
-                while ( k < right && val_list[0][k] != ' ' && val_list[0][k] != ',' ) {
-                    ++k;
-                }
-                if ( k == start || (k - start > 1 && (val_list[0][start] & 0x80) == 0 ) ) {
-                    printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
-                    std::exit(EXIT_FAILURE);
-                }
-                border_chars.emplace_back(val_list[0].substr(start, k - start));
-                while ( val_list[0][k] == ' ' ) {
-                    ++k;
-                }
-
-                if ( k < right && val_list[0][k] != ',' ) {
-                    printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
-                    std::exit(EXIT_FAILURE);
-                }
-            }
-
+            auto border_chars = parseList<std::string>(key, val_list[0], [](const std::string& s) { return s; });
             if ( border_chars.size() != 8 ) {
-                printf("invalid value: %s for %s\n", val_list[0].c_str(), key.c_str());
+                appendError("invalid value: %s for %s", val_list[0].c_str(), key.c_str());
                 std::exit(EXIT_FAILURE);
             }
 
             SetConfigValue(cfg, BorderChars, std::move(border_chars));
+            break;
+        }
+        case ConfigType::Margin:
+        {
+            auto margins = parseList<std::string>(key, val_list[0], [](const std::string& s) { return s; });
+
+            if ( margins.size() == 1 ) {
+                for ( int k = 0; k < 3; ++k ) {
+                    margins.emplace_back(margins[0]);
+                }
+            }
+            else if ( margins.size() == 2 ) {
+                margins.resize(4);
+                margins[2] = margins[0];
+                margins[3] = margins[1];
+            }
+            else if ( margins.size() != 4 ) {
+                appendError("invalid value: %s for %s", val_list[0].c_str(), key.c_str());
+                std::exit(EXIT_FAILURE);
+            }
+
+            std::vector<uint32_t> int_margins;
+            int_margins.reserve(4);
+
+            uint32_t win_height = 0;
+            uint32_t win_width = 0;
+            for ( int k = 0; k < 4; ++k ) {
+                auto& s = margins[k];
+                try {
+                    if ( s[s.size() - 1] == '%' ) {
+                        if ( win_height == 0 || win_width == 0 ) {
+                            Tty::getInstance().getWindowSize(win_height, win_width);
+                        }
+                        if ( (k & 1) == 0 ) {
+                            int_margins.emplace_back(win_height * std::stoi(s.substr(0, s.size() - 1)) / 100);
+                        }
+                        else {
+                            int_margins.emplace_back(win_width * std::stoi(s.substr(0, s.size() - 1)) / 100);
+                        }
+                    }
+                    else {
+                        int_margins.emplace_back(static_cast<uint32_t>(std::stoi(s)));
+                    }
+                }
+                catch(...) {
+                    appendError("invalid value: %s", s.c_str());
+                    std::exit(EXIT_FAILURE);
+                }
+            }
+
+            SetConfigValue(cfg, Margin, std::move(int_margins));
             break;
         }
         default:

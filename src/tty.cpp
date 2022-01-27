@@ -83,6 +83,7 @@ Tty::Tty(): color_names_ {
 }
 
 Tty::~Tty() {
+    restoreOrigTerminal();
     fclose(stdin_);
     fclose(stdout_);
 }

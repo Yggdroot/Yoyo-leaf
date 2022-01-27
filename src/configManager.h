@@ -44,11 +44,13 @@ private:
         SetConfigValue(cfg_, Indentation, 2);
         SetConfigValue(cfg_, SortPreference, Preference::End);
         SetConfigValue(cfg_, Border, "");
-        SetConfigValue(cfg_, BorderChars, std::vector<std::string>({"─","│","─","│","╭","╮","╯","╰"}));
+        SetConfigValue(cfg_, BorderChars,
+                       std::vector<std::string>({"─","│","─","│","╭","╮","╯","╰"}));
+        SetConfigValue(cfg_, Margin, std::vector<uint32_t>({0, 0, 0, 0}));
     }
 
     std::vector<std::unique_ptr<ConfigBase>> cfg_;
-    uint32_t border_char_width_{ 1 };
+    uint32_t border_char_width_{ 0 };
 
 };
 

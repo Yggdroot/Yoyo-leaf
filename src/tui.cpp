@@ -19,8 +19,6 @@ void Window::_init(const Point& tl, const Point& br) {
     width_ = bottom_right_.col - top_left_.col + 1;
     core_height_ = height_;
     core_width_ = width_;
-    //if margin
-    //    setMargin
     setBorder();
     if ( is_reverse_ ) {
         core_top_left_.line += core_height_ - 1;
@@ -251,7 +249,7 @@ void MainWindow::updateLineInfo(uint32_t result_size, uint32_t total_size) {
     auto& tty = Tty::getInstance();
     if ( line_info_.line == cmdline_y_ ) {
         if ( line_info_.col == 0 ) {
-            line_info_.col = right_boundary_;
+            line_info_.col = core_top_left_.col - 1 + right_boundary_;
         }
         int32_t info_visual_len = core_top_left_.col + core_width_ - (line_info_.col - info.length() + 1);
         if ( info_visual_len > 0 ) {
@@ -300,10 +298,10 @@ void MainWindow::updateCmdline(const std::string& pattern, uint32_t cursor_pos) 
         auto info = std::to_string(result_size_) + "/" + total;
         auto first_len = prompt_.length() + pattern.length() + 2;
         std::string spaces;
-        auto border_char_width = core_top_left_.col - 1;
+        auto border_char_width = ConfigManager::getInstance().getBorderCharWidth();
         if ( border_char_width + first_len + info_len < right_boundary_ ) {
-            line_info_.col = right_boundary_;
-            spaces = std::string(right_boundary_ - (first_len - 2) - info.length() - border_char_width, ' ');
+            line_info_.col = core_top_left_.col - 1 + right_boundary_;
+            spaces = std::string(right_boundary_ - (first_len - 2) - info.length(), ' ');
         }
         else {
             line_info_.col = core_top_left_.col + first_len + info_len - 1;
@@ -461,7 +459,7 @@ void MainWindow::_setCmdline() {
         else {
             line_info_.line = cmdline_y_;
             line_info_.col = 0;
-            flag_col_.store(right_boundary_ + 2, std::memory_order_relaxed);
+            flag_col_.store(core_top_left_.col - 1 + right_boundary_ + 2, std::memory_order_relaxed);
         }
         core_top_left_.line = line_info_.line - 1;
     }
@@ -476,7 +474,7 @@ void MainWindow::_setCmdline() {
         else {
             line_info_.line = cmdline_y_;
             line_info_.col = 0;
-            flag_col_.store(right_boundary_ + 2, std::memory_order_relaxed);
+            flag_col_.store(core_top_left_.col - 1 + right_boundary_ + 2, std::memory_order_relaxed);
         }
         core_top_left_.line = line_info_.line + 1;
     }
@@ -512,15 +510,12 @@ void Tui::init(bool resume) {
             uint32_t new_line = 0;
             uint32_t new_col = 0;
             tty_.getCursorPosition(new_line, new_col);
-            uint32_t border_char_width = new_col - col;
-            win_width -= win_width % border_char_width;
-            ConfigManager::getInstance().setBorderCharWidth(border_char_width);
+            ConfigManager::getInstance().setBorderCharWidth(new_col - col);
             tty_.clear(EraseMode::ToLineBegin);
         }
     }
     else {
         tty_.getCursorPosition2(line, col);
-        win_width -= win_width % ConfigManager::getInstance().getBorderCharWidth();
     }
 
     Point top_left(1, 1);
@@ -528,6 +523,7 @@ void Tui::init(bool resume) {
 
     auto height =  cfg_.getConfigValue<ConfigType::Height>();
     if ( height == 0 || height >= win_height ) {
+        height = win_height;
         Point orig_cursor_pos;
         orig_cursor_pos.line = line;
         orig_cursor_pos.col = col;
@@ -567,6 +563,13 @@ void Tui::init(bool resume) {
         top_left.col = col;
     }
 
+    setMargin(top_left, bottom_right, height);
+    win_width = bottom_right.col - top_left.col + 1;
+    auto& border = ConfigManager::getInstance().getConfigValue<ConfigType::Border>();
+    if ( border.find("T") != std::string::npos || border.find("B") != std::string::npos ) {
+        bottom_right.col -= win_width % ConfigManager::getInstance().getBorderCharWidth();
+    }
+
     if ( !resume ) {
         setMainWindow(top_left, bottom_right, cs_);
         cleanup_.saveCoreHeight(p_main_win_->getCoreHeight());
@@ -575,6 +578,35 @@ void Tui::init(bool resume) {
     else {
         p_main_win_->reset(top_left, bottom_right);
     }
+}
+
+void Tui::setMargin(Point& tl, Point& br, uint32_t height) {
+    auto& margin = ConfigManager::getInstance().getConfigValue<ConfigType::Margin>();
+    uint32_t min_height = 5;
+    if ( height <= min_height ) {
+        margin[0] = 0;
+        margin[2] = 0;
+    }
+    else if ( margin[0] + margin[2] + min_height > height ) {
+        margin[0] = (height - min_height) >> 1;
+        margin[2] = height - min_height - margin[0];
+    }
+
+    auto width = br.col - tl.col + 1;
+    uint32_t min_width = 16;
+    if ( width <= min_width ) {
+        margin[1] = 0;
+        margin[3] = 0;
+    }
+    else if ( margin[1] + margin[3] + min_width > width ) {
+        margin[1] = (width - min_width) >> 1;
+        margin[3] = width - min_width - margin[1];
+    }
+
+    tl.line += margin[0];
+    tl.col += margin[3];
+    br.line -= margin[2];
+    br.col -= margin[1];
 }
 
 Tui::~Tui() {
@@ -610,11 +642,15 @@ void Cleanup::doWork(bool once) {
         tty.flush();
     }
     else {
-        if ( cfg.getConfigValue<ConfigType::Reverse>() ) {
+        if ( cfg.getConfigValue<ConfigType::Reverse>() && core_height_ > 0 ) {
             tty.moveCursor(CursorDirection::Up, core_height_);
         }
         if ( top_border_ ) {
             tty.moveCursor(CursorDirection::Up, 1);
+        }
+        auto top_margin = cfg.getConfigValue<ConfigType::Margin>()[0];
+        if ( top_margin ) {
+            tty.moveCursor(CursorDirection::Up, top_margin);
         }
         tty.moveCursor(CursorDirection::Left, 1024);   // move to column 1
         tty.clear(EraseMode::ToScreenEnd);

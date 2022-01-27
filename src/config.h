@@ -17,6 +17,7 @@ enum class ConfigType
     SortPreference,
     Border,
     BorderChars,
+    Margin,
 
     MaxConfigNum
 };
@@ -43,6 +44,7 @@ DefineConfigValue(Indentation, uint32_t)
 DefineConfigValue(SortPreference, Preference)
 DefineConfigValue(Border, std::string)
 DefineConfigValue(BorderChars, std::vector<std::string>)
+DefineConfigValue(Margin, std::vector<uint32_t>)
 
 #define SetConfigValue(container, cfg_type, value)                  \
     container[static_cast<uint32_t>(ConfigType::cfg_type)].reset(   \
@@ -68,7 +70,7 @@ public:
 
     }
 
-    std::conditional_t<std::is_fundamental<T>::value, T, const T&> getValue() noexcept {
+    std::conditional_t<std::is_fundamental<T>::value, T, T&> getValue() noexcept {
         return value_;
     }
 
