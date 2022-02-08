@@ -167,6 +167,8 @@ private:
     void _showFlag();
     void _resume();
 
+    static int _exec(const char* cmd);
+
     std::vector<HighlightString> _generateHighlightStr(uint32_t first, uint32_t last,
                                                        const std::string& pattern);
 private:

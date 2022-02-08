@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/prctl.h>
 #include <fcntl.h>
 #include <execinfo.h>
 #include <chrono>
@@ -562,6 +563,39 @@ void Application::_setNonBlocking(int fd) {
 	}
 }
 
+int Application::_exec(const char* cmd) {
+    int fd[2];
+
+    if ( pipe(fd) < 0 ) {
+        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        std::exit(EXIT_FAILURE);
+        return -1;
+    }
+
+    auto pid = fork();
+    if ( pid < 0 ) {
+        close(fd[0]);
+        close(fd[1]);
+        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        std::exit(EXIT_FAILURE);
+        return -1;
+    }
+    else if ( pid == 0 ) {
+        prctl(PR_SET_PDEATHSIG, SIGKILL);
+        close(fd[0]);
+        if (fd[1] != STDOUT_FILENO) {
+            dup2(fd[1], STDOUT_FILENO);
+            close(fd[1]);
+        }
+        execl("/bin/sh", "sh", "-c", cmd, nullptr);
+        std::exit(127);
+    }
+
+    close(fd[1]);
+
+    return fd[0];
+}
+
 void Application::_readData() {
     using namespace std::chrono;
 
@@ -569,18 +603,11 @@ void Application::_readData() {
     {
         explicit FdRAII(int fd) : fd(fd) {}
         ~FdRAII() {
-            if ( isatty && pipe ) {
-                pclose(pipe);
+            if ( fd != STDIN_FILENO ) {
+                close(fd);
             }
         }
-        void operator=(FILE* pipe) {
-            this->pipe = pipe;
-            fd = fileno(this->pipe);
-            isatty = true;
-        }
         int fd;
-        FILE* pipe{ nullptr };
-        bool isatty{ false };
     };
 
     FdRAII read_fd = FdRAII(STDIN_FILENO);
@@ -590,12 +617,7 @@ void Application::_readData() {
 #else
         auto cmd = "find . -name \".\" -o -name \".*\" -prune -o -type f -printf \"%P\n\"";
 #endif
-        auto pipe = popen(cmd, "r");
-        if ( pipe == nullptr ) {
-            Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
-            std::exit(EXIT_FAILURE);
-        }
-        read_fd = pipe;
+        read_fd.fd = _exec(cmd);
     }
 
     _setNonBlocking(read_fd.fd);
