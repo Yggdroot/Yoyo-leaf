@@ -1,6 +1,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
+#ifndef __APPLE__
 #include <sys/prctl.h>
+#endif
 #include <fcntl.h>
 #include <execinfo.h>
 #include <chrono>
@@ -25,6 +27,12 @@ void SignalManager::installHandler() {
     sigaction(SIGILL, &act, NULL);
     sigaction(SIGSEGV, &act, NULL);
     sigaction(SIGABRT, &act, NULL);
+
+    // To avoid zombie process
+    act.sa_handler = SIG_IGN;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    sigaction(SIGCHLD, &act, NULL);
 }
 
 void SignalManager::catchSignal(int sig, siginfo_t *info, void *ctxt) {
@@ -581,9 +589,11 @@ int Application::_exec(const char* cmd) {
         return -1;
     }
     else if ( pid == 0 ) {
+#ifndef __APPLE__
         prctl(PR_SET_PDEATHSIG, SIGKILL);
+#endif
         close(fd[0]);
-        if (fd[1] != STDOUT_FILENO) {
+        if ( fd[1] != STDOUT_FILENO ) {
             dup2(fd[1], STDOUT_FILENO);
             close(fd[1]);
         }
@@ -613,9 +623,9 @@ void Application::_readData() {
     FdRAII read_fd = FdRAII(STDIN_FILENO);
     if ( isatty(STDIN_FILENO) ) {
 #ifdef __APPLE__
-        auto cmd = "find . -name \".\" -o -name \".*\" -prune -o -type f -print | cut -b3-";
+        auto cmd = "find . -name \".\" -o -name \".*\" -prune -o -type f -print 2>/dev/null | cut -b3-";
 #else
-        auto cmd = "find . -name \".\" -o -name \".*\" -prune -o -type f -printf \"%P\n\"";
+        auto cmd = "find . -name \".\" -o -name \".*\" -prune -o -type f -printf \"%P\n\" 2>/dev/null";
 #endif
         read_fd.fd = _exec(cmd);
     }
