@@ -1,6 +1,6 @@
 #include <unistd.h>
 #include <sys/wait.h>
-#ifndef __APPLE__
+#ifdef __linux__
 #include <sys/prctl.h>
 #endif
 #include <fcntl.h>
@@ -589,7 +589,7 @@ int Application::_exec(const char* cmd) {
         return -1;
     }
     else if ( pid == 0 ) {
-#ifndef __APPLE__
+#ifdef __linux__
         prctl(PR_SET_PDEATHSIG, SIGKILL);
 #endif
         close(fd[0]);
