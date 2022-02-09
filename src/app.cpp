@@ -508,10 +508,14 @@ void Application::_handleSignal() {
             case SIGTSTP:
                 Cleanup::getInstance().doWork(false);
                 kill(getpid(), SIGSTOP);
+                sigstop_ = true;
                 break;
             case SIGCONT:
-                Tty::getInstance().setNewTerminal();
-                _resume();
+                if ( sigstop_ ) {
+                    sigstop_ = false;
+                    Tty::getInstance().setNewTerminal();
+                    _resume();
+                }
                 break;
             case SIGWINCH:
                 break;

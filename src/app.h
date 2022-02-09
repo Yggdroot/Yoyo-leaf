@@ -121,6 +121,14 @@ public:
         sigdelset(&sig_set, SIGFPE);
         sigdelset(&sig_set, SIGILL);
         sigdelset(&sig_set, SIGSEGV);
+
+        sigdelset(&sig_set, SIGCHLD);
+
+        // support running as a background job
+        // unblock SIGTTIN and SIGTTOU
+        sigdelset(&sig_set, SIGTTIN);
+        sigdelset(&sig_set, SIGTTOU);
+
         if ( pthread_sigmask(SIG_BLOCK, &sig_set, nullptr) != 0 ) {
             Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
             std::exit(EXIT_FAILURE);
@@ -201,6 +209,7 @@ private:
     Point    current_yx_;
     uint32_t indent_{ ConfigManager::getInstance().getConfigValue<ConfigType::Indentation>() };
     bool     normal_mode_{ false };
+    bool     sigstop_{ false };
 
     FuzzyEngine fuzzy_engine_;
     Preference  preference_{ ConfigManager::getInstance().getConfigValue<ConfigType::SortPreference>() };
