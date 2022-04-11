@@ -298,8 +298,12 @@ static ValueElements* evaluate(TextContext* p_text_ctxt,
                         score = prefix_score + p_val->score - 3000 * (p_val->beg - i);
                         end_pos = p_val->end;
                     }
+                    else {
+                        break;
+                    }
                 }
             }
+
             if ( score > max_score ) {
                 max_score = score;
                 beg = i - n;
@@ -728,9 +732,13 @@ static HighlightContext* evaluateHighlights(TextContext* p_text_ctxt,
                             memcpy(cur_highlights.positions + 1, p_group->positions, p_group->end_index * sizeof(HighlightPos));
                             cur_highlights.end_index = p_group->end_index + 1;
                         }
+                        else {
+                            break;
+                        }
                     }
                 }
             }
+
             if ( score > max_score ) {
                 max_score = score;
                 memcpy(groups[k], &cur_highlights, sizeof(HighlightContext));

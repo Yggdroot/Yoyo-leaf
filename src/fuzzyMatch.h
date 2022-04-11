@@ -7,7 +7,7 @@ _Pragma("once");
 namespace leaf
 {
 
-#define MIN_WEIGHT (-1000000)
+#define MIN_WEIGHT (-2147483648)
 
 struct PatternContext
 {
