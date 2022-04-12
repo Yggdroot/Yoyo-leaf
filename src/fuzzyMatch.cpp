@@ -195,7 +195,7 @@ static ValueElements* evaluate(TextContext* p_text_ctxt,
                 break;
         }
         if ( bits == 0 ) {
-            memset(val, 0, sizeof(ValueElements));
+            // val[0] is always all 0s
             return val;
         }
         else {
@@ -721,20 +721,18 @@ static HighlightContext* evaluateHighlights(TextContext* p_text_ctxt,
                     max_prefix_score = prefix_score;
                     p_text_ctxt->offset = i;
                     HighlightContext* p_group = evaluateHighlights(p_text_ctxt, p_pattern_ctxt, k + n, groups);
-                    if ( p_group ) {
-                        if ( p_group->end ) {
-                            score = prefix_score + p_group->score - 3000 * (p_group->beg - i);
-                            cur_highlights.score = score;
-                            cur_highlights.beg = i - n;
-                            cur_highlights.end = p_group->end;
-                            cur_highlights.positions[0].col = i - n;
-                            cur_highlights.positions[0].len = n;
-                            memcpy(cur_highlights.positions + 1, p_group->positions, p_group->end_index * sizeof(HighlightPos));
-                            cur_highlights.end_index = p_group->end_index + 1;
-                        }
-                        else {
-                            break;
-                        }
+                    if ( p_group && p_group->end ) {
+                        score = prefix_score + p_group->score - 3000 * (p_group->beg - i);
+                        cur_highlights.score = score;
+                        cur_highlights.beg = i - n;
+                        cur_highlights.end = p_group->end;
+                        cur_highlights.positions[0].col = i - n;
+                        cur_highlights.positions[0].len = n;
+                        memcpy(cur_highlights.positions + 1, p_group->positions, p_group->end_index * sizeof(HighlightPos));
+                        cur_highlights.end_index = p_group->end_index + 1;
+                    }
+                    else {
+                        break;
                     }
                 }
             }
