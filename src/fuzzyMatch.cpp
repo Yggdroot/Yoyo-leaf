@@ -289,7 +289,7 @@ static ValueElements* evaluate(TextContext* p_text_ctxt,
                  * prefer matching 'Abcyyde'
                  */
                 if ( prefix_score > max_prefix_score
-                     || (special > 0 && prefix_score == max_prefix_score) )
+                     || (text_len < 512 && special > 0 && prefix_score == max_prefix_score) )
                 {
                     max_prefix_score = prefix_score;
                     p_text_ctxt->offset = i;
@@ -716,7 +716,7 @@ static HighlightContext* evaluateHighlights(TextContext* p_text_ctxt,
                  * prefer matching 'Abcyyde'
                  */
                 if ( prefix_score > max_prefix_score
-                     || (special > 0 && prefix_score == max_prefix_score) )
+                     || (text_len < 512 && special > 0 && prefix_score == max_prefix_score) )
                 {
                     max_prefix_score = prefix_score;
                     p_text_ctxt->offset = i;
