@@ -768,12 +768,17 @@ void Application::_input() {
     using TimePoint = decltype(steady_clock::now());
 
     TimePoint cur_time;
-    auto start_time = TimePoint();
+    TimePoint start_time;
+    bool timeout = true;
     std::string pattern;
     uint32_t cursor_pos = 0;
     Operation last_op = Operation::Invalid;
     while ( true ) {
         auto tup = Tty::getInstance().getchar();
+        if ( timeout == true ) {
+            timeout = false;
+            start_time = steady_clock::now();
+        }
         auto key = std::get<0>(tup);
         if ( key == Key::Ctrl_I ) { // tab
             normal_mode_ = !normal_mode_;
@@ -815,11 +820,10 @@ void Application::_input() {
             }
         }
         else if ( key == Key::Timeout ) {
+            timeout = true;
             switch ( last_op ) {
             case Operation::Input:
                 if ( start_time != cur_time ) {
-                    start_time = cur_time;
-
                     search_count_++;
                     task_queue_.put([this, pattern] {
                         pattern_ = std::move(pattern);
@@ -830,7 +834,6 @@ void Application::_input() {
             case Operation::Backspace:
             case Operation::Delete:
                 if ( start_time != cur_time ) {
-                    start_time = cur_time;
                     _shorten(pattern, cursor_pos);
                 }
                 break;
@@ -921,6 +924,7 @@ void Application::_shorten(const std::string& pattern, uint32_t cursor_pos) {
 
     if ( pattern.empty() ) {
         task_queue_.put([this] {
+            result_content_size_.store(content_.size(), std::memory_order_relaxed);
             cmdline_queue_.put([this, content_size=content_.size()] {
                 tui_.updateLineInfo(content_size, content_size);
             });
