@@ -561,18 +561,18 @@ void Application::start() {
 
 
 void Application::_setNonBlocking(int fd) {
-	int opts = fcntl(fd, F_GETFL);
-	if ( opts < 0 ) {
+    int opts = fcntl(fd, F_GETFL);
+    if ( opts < 0 ) {
         Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
         std::exit(EXIT_FAILURE);
-	}
+    }
 
-	opts = opts | O_NONBLOCK;
+    opts = opts | O_NONBLOCK;
 
-	if ( fcntl(fd, F_SETFL, opts) < 0 ) {
+    if ( fcntl(fd, F_SETFL, opts) < 0 ) {
         Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
         std::exit(EXIT_FAILURE);
-	}
+    }
 }
 
 int Application::_exec(const char* cmd) {
