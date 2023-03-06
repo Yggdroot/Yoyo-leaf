@@ -1,5 +1,7 @@
 _Pragma("once");
 
+#include <utility>
+
 namespace leaf
 {
 
@@ -13,8 +15,9 @@ public:
     Singleton(Singleton&&) = delete;
     Singleton& operator=(Singleton&&) = delete;
 
-    static T& getInstance() {
-        static T t;
+    template<typename... Args>
+    static T& getInstance(Args&&... args) {
+        static T t(std::forward<Args>(args)...);
         return t;
     }
 
