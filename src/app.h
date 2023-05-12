@@ -130,7 +130,7 @@ public:
         sigdelset(&sig_set, SIGTTOU);
 
         if ( pthread_sigmask(SIG_BLOCK, &sig_set, nullptr) != 0 ) {
-            Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+            Error::getInstance().appendError(ErrorMessage);
             std::exit(EXIT_FAILURE);
         }
 

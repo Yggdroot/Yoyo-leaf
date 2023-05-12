@@ -531,7 +531,7 @@ void Application::_handleSignal() {
         //    continue;
         //}
         else {
-            Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+            Error::getInstance().appendError(ErrorMessage);
             std::exit(EXIT_FAILURE);
         }
     }
@@ -563,14 +563,14 @@ void Application::start() {
 void Application::_setNonBlocking(int fd) {
     int opts = fcntl(fd, F_GETFL);
     if ( opts < 0 ) {
-        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        Error::getInstance().appendError(ErrorMessage);
         std::exit(EXIT_FAILURE);
     }
 
     opts = opts | O_NONBLOCK;
 
     if ( fcntl(fd, F_SETFL, opts) < 0 ) {
-        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        Error::getInstance().appendError(ErrorMessage);
         std::exit(EXIT_FAILURE);
     }
 }
@@ -579,7 +579,7 @@ int Application::_exec(const char* cmd) {
     int fd[2];
 
     if ( pipe(fd) < 0 ) {
-        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        Error::getInstance().appendError(ErrorMessage);
         std::exit(EXIT_FAILURE);
         return -1;
     }
@@ -588,7 +588,7 @@ int Application::_exec(const char* cmd) {
     if ( pid < 0 ) {
         close(fd[0]);
         close(fd[1]);
-        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        Error::getInstance().appendError(ErrorMessage);
         std::exit(EXIT_FAILURE);
         return -1;
     }
@@ -646,7 +646,7 @@ void Application::_readData() {
                 continue;
             }
             else {
-                Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+                Error::getInstance().appendError(ErrorMessage);
                 std::exit(EXIT_FAILURE);
             }
         }

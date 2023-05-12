@@ -91,20 +91,20 @@ Tty::~Tty() {
 void Tty::_init() {
     stdin_ = fopen("/dev/tty", "r");
     if ( stdin_ == nullptr ) {
-        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        Error::getInstance().appendError(ErrorMessage);
         std::exit(EXIT_FAILURE);
     }
     term_stdin_ = fileno(stdin_);
 
     stdout_ = fopen("/dev/tty", "w");
     if ( stdout_ == nullptr ) {
-        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        Error::getInstance().appendError(ErrorMessage);
         std::exit(EXIT_FAILURE);
     }
     term_stdout_ = fileno(stdout_);
 
     if ( tcgetattr(term_stdin_, &orig_term_) == -1 ) {
-        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        Error::getInstance().appendError(ErrorMessage);
         std::exit(EXIT_FAILURE);
     }
 
@@ -405,7 +405,7 @@ void Tty::_init() {
 
 void Tty::restoreOrigTerminal() {
     if ( tcsetattr(term_stdin_, TCSANOW, &orig_term_) == -1 ) {
-        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        Error::getInstance().appendError(ErrorMessage);
         std::exit(EXIT_FAILURE);
     }
 }
@@ -420,7 +420,7 @@ void Tty::restoreOrigTerminal_s() {
 
 void Tty::setNewTerminal() {
     if ( tcsetattr(term_stdin_, TCSANOW, &new_term_) == -1 ) {
-        Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+        Error::getInstance().appendError(ErrorMessage);
         std::exit(EXIT_FAILURE);
     }
 }
@@ -552,7 +552,7 @@ std::tuple<Key, std::string> Tty::getchar() {
             }
         }
         else { // n < 0
-            Error::getInstance().appendError(utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno)));
+            Error::getInstance().appendError(ErrorMessage);
             std::exit(EXIT_FAILURE);
         }
     }

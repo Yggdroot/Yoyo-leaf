@@ -5,11 +5,16 @@ _Pragma("once");
 #include <vector>
 #include <mutex>
 #include <cstdio>
+#include <string.h>
 #include "singleton.h"
+#include "utils.h"
 
 
 namespace leaf
 {
+
+#define ErrorMessage \
+    utils::strFormat("%s:%d:%s", __FILE__, __LINE__, strerror(errno))
 
 class Error final : public Singleton<Error>
 {
