@@ -624,8 +624,13 @@ void Application::_readData() {
     while ( running_ ) {
         auto len = read(read_fd.fd, buffer, sizeof(buffer));
         if ( len < 0 ) {
-            Error::getInstance().appendError(ErrorMessage);
-            std::exit(EXIT_FAILURE);
+            if ( errno == EINTR ) {
+                continue;
+            }
+            else {
+                Error::getInstance().appendError(ErrorMessage);
+                std::exit(EXIT_FAILURE);
+            }
         }
         else if ( len == 0 ) {
             // indicate the end
