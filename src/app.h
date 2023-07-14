@@ -20,7 +20,7 @@ _Pragma("once");
 namespace leaf
 {
 
-constexpr uint32_t BufferLen = 64 * 1024;
+constexpr uint32_t BufferLen = 16 * 1024;
 
 enum class Operation
 {
@@ -162,7 +162,6 @@ private:
 
     void _handleSignal();
     void _readConfig();
-    void _setNonBlocking(int fd);
     void _readData();
     void _processData(BufferStorage&& storage);
     void _input();

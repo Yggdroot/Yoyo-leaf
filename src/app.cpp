@@ -559,22 +559,6 @@ void Application::start() {
     cmdline.join();
 }
 
-
-void Application::_setNonBlocking(int fd) {
-    int opts = fcntl(fd, F_GETFL);
-    if ( opts < 0 ) {
-        Error::getInstance().appendError(ErrorMessage);
-        std::exit(EXIT_FAILURE);
-    }
-
-    opts = opts | O_NONBLOCK;
-
-    if ( fcntl(fd, F_SETFL, opts) < 0 ) {
-        Error::getInstance().appendError(ErrorMessage);
-        std::exit(EXIT_FAILURE);
-    }
-}
-
 int Application::_exec(const char* cmd) {
     int fd[2];
 
@@ -634,21 +618,14 @@ void Application::_readData() {
         read_fd.fd = _exec(cmd);
     }
 
-    _setNonBlocking(read_fd.fd);
     BufferStorage storage;
     auto start_time = steady_clock::now();
     char buffer[BufferLen];
     while ( running_ ) {
         auto len = read(read_fd.fd, buffer, sizeof(buffer));
         if ( len < 0 ) {
-            if ( errno == EAGAIN ) {
-                std::this_thread::sleep_for(milliseconds(1));
-                continue;
-            }
-            else {
-                Error::getInstance().appendError(ErrorMessage);
-                std::exit(EXIT_FAILURE);
-            }
+            Error::getInstance().appendError(ErrorMessage);
+            std::exit(EXIT_FAILURE);
         }
         else if ( len == 0 ) {
             // indicate the end
