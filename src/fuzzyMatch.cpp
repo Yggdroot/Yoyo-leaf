@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +19,7 @@ namespace leaf
     #if defined(_M_AMD64) || defined(_M_X64)
         #define FM_BITSCAN_WINDOWS64
         #pragma intrinsic(_BitScanReverse64)
+        #pragma intrinsic(_BitScanForward64)
     #endif
 
 #endif
@@ -48,14 +50,29 @@ namespace leaf
 
     #define FM_BIT_LENGTH(x) FM_BitLength(x)
 
+    #if defined(FM_BITSCAN_WINDOWS64)
+
+        uint16_t FM_ctz(uint64_t x) {
+            unsigned long index;
+            if (_BitScanForward64(&index, x)) {
+                return (uint16_t)index;
+            }
+            return 64;
+        }
+        #define FM_CTZ(x) FM_ctz(x)
+
+    #endif
+
 #elif defined(__GNUC__)
 
     #define FM_BIT_LENGTH(x) ((uint32_t)((sizeof(unsigned long long) << 3) - __builtin_clzll(x)))
+    #define FM_CTZ(x) __builtin_ctzll(x)
 
 #elif defined(__clang__)
 
     #if __has_builtin(__builtin_clzll)
         #define FM_BIT_LENGTH(x) ((uint32_t)((sizeof(unsigned long long) << 3) - __builtin_clzll(x)))
+        #define FM_CTZ(x) __builtin_ctzll(x)
     #endif
 
 #endif
@@ -95,21 +112,27 @@ namespace leaf
 
 #endif
 
-static uint64_t deBruijn = 0x022FDD63CC95386D;
+#if !defined(FM_CTZ)
 
-static uint8_t MultiplyDeBruijnBitPosition[64] =
-{
-    0,  1,  2,  53, 3,  7,  54, 27,
-    4,  38, 41, 8,  34, 55, 48, 28,
-    62, 5,  39, 46, 44, 42, 22, 9,
-    24, 35, 59, 56, 49, 18, 29, 11,
-    63, 52, 6,  26, 37, 40, 33, 47,
-    61, 45, 43, 21, 23, 58, 17, 10,
-    51, 25, 36, 32, 60, 20, 57, 16,
-    50, 31, 19, 15, 30, 14, 13, 12,
-};
+    static uint64_t deBruijn = 0x022FDD63CC95386D;
 
-#define FM_CTZ(x) MultiplyDeBruijnBitPosition[((uint64_t)((x) & -(int64_t)(x)) * deBruijn) >> 58]
+    static uint8_t MultiplyDeBruijnBitPosition[64] =
+    {
+        0,  1,  2,  53, 3,  7,  54, 27,
+        4,  38, 41, 8,  34, 55, 48, 28,
+        62, 5,  39, 46, 44, 42, 22, 9,
+        24, 35, 59, 56, 49, 18, 29, 11,
+        63, 52, 6,  26, 37, 40, 33, 47,
+        61, 45, 43, 21, 23, 58, 17, 10,
+        51, 25, 36, 32, 60, 20, 57, 16,
+        50, 31, 19, 15, 30, 14, 13, 12,
+    };
+
+    #define FM_CTZ(x) MultiplyDeBruijnBitPosition[((uint64_t)((x) & -(int64_t)(x)) * deBruijn) >> 58]
+
+#endif
+
+static thread_local uint64_t TEXT_MASK[256*2];
 
 static int32_t valTable[64] =
 {
@@ -436,6 +459,7 @@ int32_t FuzzyMatch::getWeight(const char* p_text,
     }
 
     int16_t first_char_pos = -1;
+    uint16_t short_text_len = text_len;
     if ( p_pattern_ctxt->is_lower ) {
         for ( uint16_t i = 0; i < text_len; ++i ) {
             if ( tolower(text[i]) == first_char ) {
@@ -456,12 +480,19 @@ int32_t FuzzyMatch::getWeight(const char* p_text,
         if ( last_char_pos == -1 )
             return MIN_WEIGHT;
 
-        col_num = (text_len + 63) >> 6;     /* (text_len + 63)/64 */
-        /* uint64_t text_mask[256][col_num] */
-        text_mask = static_cast<uint64_t*>(calloc(col_num << 8, sizeof(uint64_t)));
-        if ( !text_mask ) {
-            fprintf(stderr, "Out of memory in getWeight()!\n");
-            return MIN_WEIGHT;
+        short_text_len = last_char_pos + 1;
+        col_num = (short_text_len + 63) >> 6;     /* (short_text_len + 63)/64 */
+        if (col_num <= 2) {
+            memset(TEXT_MASK, 0, sizeof(TEXT_MASK));
+            text_mask = TEXT_MASK;
+        }
+        else {
+            /* uint64_t text_mask[256][col_num] */
+            text_mask = static_cast<uint64_t*>(calloc(col_num << 8, sizeof(uint64_t)));
+            if ( !text_mask ) {
+                fprintf(stderr, "Out of memory in getWeight()!\n");
+                return MIN_WEIGHT;
+            }
         }
         for ( int16_t i = first_char_pos; i <= last_char_pos; ++i ) {
             uint8_t c = tolower(text[i]);
@@ -513,12 +544,19 @@ int32_t FuzzyMatch::getWeight(const char* p_text,
         if ( last_char_pos == -1 )
             return MIN_WEIGHT;
 
-        col_num = (text_len + 63) >> 6;
-        /* uint64_t text_mask[256][col_num] */
-        text_mask = static_cast<uint64_t*>(calloc(col_num << 8, sizeof(uint64_t)));
-        if ( !text_mask ) {
-            fprintf(stderr, "Out of memory in getWeight()!\n");
-            return MIN_WEIGHT;
+        short_text_len = last_char_pos + 1;
+        col_num = (short_text_len + 63) >> 6;     /* (short_text_len + 63)/64 */
+        if (col_num <= 2) {
+            memset(TEXT_MASK, 0, sizeof(TEXT_MASK));
+            text_mask = TEXT_MASK;
+        }
+        else {
+            /* uint64_t text_mask[256][col_num] */
+            text_mask = static_cast<uint64_t*>(calloc(col_num << 8, sizeof(uint64_t)));
+            if ( !text_mask ) {
+                fprintf(stderr, "Out of memory in getWeight()!\n");
+                return MIN_WEIGHT;
+            }
         }
         for ( int16_t i = first_char_pos; i <= last_char_pos; ++i ) {
             uint8_t c = text[i];
@@ -543,13 +581,15 @@ int32_t FuzzyMatch::getWeight(const char* p_text,
     }
 
     if ( j < pattern_len ) {
-        free(text_mask);
+        if (col_num > 2) {
+            free(text_mask);
+        }
         return MIN_WEIGHT;
     }
 
     if ( p_pattern_ctxt->actual_pattern_len >= 64 ) {
         j = 0;
-        for ( int16_t i = first_char_pos; i < text_len; ++i ) {
+        for ( int16_t i = first_char_pos; i < short_text_len; ++i ) {
             if ( j < p_pattern_ctxt->actual_pattern_len ) {
                 if ( (p_pattern_ctxt->is_lower && tolower(text[i]) == pattern[j])
                      || text[i] == pattern[j] ) {
@@ -561,17 +601,19 @@ int32_t FuzzyMatch::getWeight(const char* p_text,
         }
 
         if ( j < p_pattern_ctxt->actual_pattern_len ) {
-            free(text_mask);
+            if (col_num > 2) {
+                free(text_mask);
+            }
             return MIN_WEIGHT;
         }
     }
 
     TextContext text_ctxt;
     text_ctxt.text = text;
-    text_ctxt.text_len = text_len;
+    text_ctxt.text_len = short_text_len;
     text_ctxt.text_mask = text_mask;
     text_ctxt.col_num = col_num;
-    text_ctxt.offset = 0;
+    text_ctxt.offset = first_char_pos;
 
     ValueElements val[64];
     memset(val, 0, sizeof(val));
@@ -581,7 +623,9 @@ int32_t FuzzyMatch::getWeight(const char* p_text,
     uint16_t beg = p_val->beg;
     uint16_t end = p_val->end;
 
-    free(text_mask);
+    if (col_num > 2) {
+        free(text_mask);
+    }
 
     if ( preference == Preference::Begin ) {
         return score + 10000/text_len + 20000 * pattern_len/(beg + end);
@@ -811,6 +855,8 @@ static HighlightContext* evaluateHighlights(TextContext* p_text_ctxt,
     return groups[k];
 }
 
+static thread_local uint64_t TEXT_MASK2[256*2];
+
 /**
  * return a list of pair [col, length], where `col` is the column number(start
  * from 0, the value must correspond to the byte index of `text`) and `length`
@@ -827,6 +873,7 @@ Unique_ptr<HighlightContext> FuzzyMatch::getHighlights(const char* p_text,
         return { nullptr, destroyer };
 
     uint16_t col_num = 0;
+    uint64_t* text_mask = nullptr;
     Unique_ptr<uint64_t> p_text_mask(nullptr, destroyer);
     const uint8_t* pattern = p_pattern_ctxt->pattern;
     const uint8_t* text = reinterpret_cast<const uint8_t*>(p_text);
@@ -896,10 +943,10 @@ Unique_ptr<HighlightContext> FuzzyMatch::getHighlights(const char* p_text,
         }
     }
 
+    int16_t first_char_pos = -1;
+    uint16_t short_text_len = text_len;
     if ( p_pattern_ctxt->is_lower ) {
-        int16_t first_char_pos = -1;
-        int16_t i;
-        for ( i = 0; i < text_len; ++i ) {
+        for ( int16_t i = 0; i < text_len; ++i ) {
             if ( tolower(text[i]) == first_char ) {
                 first_char_pos = i;
                 break;
@@ -907,22 +954,29 @@ Unique_ptr<HighlightContext> FuzzyMatch::getHighlights(const char* p_text,
         }
 
         int16_t last_char_pos = -1;
-        for ( i = text_len - 1; i >= first_char_pos; --i ) {
+        for ( int16_t i = text_len - 1; i >= first_char_pos; --i ) {
             if ( tolower(text[i]) == last_char ) {
                 last_char_pos = i;
                 break;
             }
         }
 
-        col_num = (text_len + 63) >> 6;     /* (text_len + 63)/64 */
-        /* uint64_t text_mask[256][col_num] */
-        p_text_mask.reset(static_cast<uint64_t*>(calloc(col_num << 8, sizeof(uint64_t))));
-        if ( !p_text_mask ) {
-            fprintf(stderr, "Out of memory in getHighlights()!\n");
-            return { nullptr, destroyer };
+        short_text_len = last_char_pos + 1;
+        col_num = (short_text_len + 63) >> 6;     /* (short_text_len + 63)/64 */
+        if (col_num <= 2) {
+            memset(TEXT_MASK2, 0, sizeof(TEXT_MASK2));
+            text_mask = TEXT_MASK2;
         }
-        auto text_mask = p_text_mask.get();
-        for ( i = first_char_pos; i <= last_char_pos; ++i ) {
+        else {
+            /* uint64_t text_mask[256][col_num] */
+            p_text_mask.reset(static_cast<uint64_t*>(calloc(col_num << 8, sizeof(uint64_t))));
+            if ( !p_text_mask ) {
+                fprintf(stderr, "Out of memory in getHighlights()!\n");
+                return { nullptr, destroyer };
+            }
+            text_mask = p_text_mask.get();
+        }
+        for ( int16_t i = first_char_pos; i <= last_char_pos; ++i ) {
             uint8_t c = tolower(text[i]);
             /* c in pattern */
             if ( pattern_mask[c] != -1 )
@@ -930,10 +984,8 @@ Unique_ptr<HighlightContext> FuzzyMatch::getHighlights(const char* p_text,
         }
     }
     else {
-        int16_t first_char_pos = -1;
         if ( isupper(first_char) ) {
-            int16_t i;
-            for ( i = 0; i < text_len; ++i ) {
+            for ( int16_t i = 0; i < text_len; ++i ) {
                 if ( text[i] == first_char ) {
                     first_char_pos = i;
                     break;
@@ -941,8 +993,7 @@ Unique_ptr<HighlightContext> FuzzyMatch::getHighlights(const char* p_text,
             }
         }
         else {
-            int16_t i;
-            for ( i = 0; i < text_len; ++i ) {
+            for ( int16_t i = 0; i < text_len; ++i ) {
                 if ( tolower(text[i]) == first_char ) {
                     first_char_pos = i;
                     break;
@@ -952,7 +1003,7 @@ Unique_ptr<HighlightContext> FuzzyMatch::getHighlights(const char* p_text,
 
         int16_t last_char_pos = -1;
         if ( isupper(last_char) ) {
-            for (int16_t i = text_len - 1; i >= first_char_pos; --i ) {
+            for ( int16_t i = text_len - 1; i >= first_char_pos; --i ) {
                 if ( text[i] == last_char ) {
                     last_char_pos = i;
                     break;
@@ -968,15 +1019,21 @@ Unique_ptr<HighlightContext> FuzzyMatch::getHighlights(const char* p_text,
             }
         }
 
-        col_num = (text_len + 63) >> 6;
-        /* uint64_t text_mask[256][col_num] */
-        p_text_mask.reset(static_cast<uint64_t*>(calloc(col_num << 8, sizeof(uint64_t))));
-        if ( !p_text_mask ) {
-            fprintf(stderr, "Out of memory in getHighlights()!\n");
-            return { nullptr, destroyer };
+        short_text_len = last_char_pos + 1;
+        col_num = (short_text_len + 63) >> 6;     /* (short_text_len + 63)/64 */
+        if (col_num <= 2) {
+            memset(TEXT_MASK2, 0, sizeof(TEXT_MASK2));
+            text_mask = TEXT_MASK2;
         }
-
-        auto text_mask = p_text_mask.get();
+        else {
+            /* uint64_t text_mask[256][col_num] */
+            p_text_mask.reset(static_cast<uint64_t*>(calloc(col_num << 8, sizeof(uint64_t))));
+            if ( !p_text_mask ) {
+                fprintf(stderr, "Out of memory in getHighlights()!\n");
+                return { nullptr, destroyer };
+            }
+            text_mask = p_text_mask.get();
+        }
 
         for ( int16_t i = first_char_pos; i <= last_char_pos; ++i ) {
             uint8_t c = text[i];
@@ -997,10 +1054,10 @@ Unique_ptr<HighlightContext> FuzzyMatch::getHighlights(const char* p_text,
 
     TextContext text_ctxt;
     text_ctxt.text = text;
-    text_ctxt.text_len = text_len;
-    text_ctxt.text_mask = p_text_mask.get();
+    text_ctxt.text_len = short_text_len;
+    text_ctxt.text_mask = text_mask;
     text_ctxt.col_num = col_num;
-    text_ctxt.offset = 0;
+    text_ctxt.offset = first_char_pos;
 
     /* HighlightContext* groups[pattern_len] */
     HighlightContext** groups = static_cast<HighlightContext**>(calloc(pattern_len, sizeof(HighlightContext*)));
